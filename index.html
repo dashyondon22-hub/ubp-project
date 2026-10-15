@@ -1,0 +1,967 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Барилгын графикийн хяналт</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: project bar on top, tab strip, one working surface per tab; Gantt and calendar scroll inside their own frames */
+:root{
+  --bg:#eef0ed; --surface:#ffffff; --surface-2:#f6f7f5; --ink:#1b2321; --muted:#5d6965; --line:#d7dcd8;
+  --accent:#1d5c72; --accent-soft:#dbe9ee; --on-accent:#ffffff;
+  --ok:#2c7a4c; --ok-soft:#dcefe3; --warn:#a96d12; --warn-soft:#f6ead2; --bad:#bf3f2b; --bad-soft:#f7dfda;
+  --base:#bcc4c0; --plan:#8a9691;
+  --ubp-blue:#0241a0; --ubp-green:#2bc97b;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111614; --surface:#191f1d; --surface-2:#1f2624; --ink:#e4eae7; --muted:#97a39e; --line:#2d3532;
+  --accent:#6fb4ca; --accent-soft:#1d3640; --on-accent:#0d1a1f;
+  --ok:#5fbf86; --ok-soft:#1b3326; --warn:#e2aa4c; --warn-soft:#3a2d15; --bad:#ef7561; --bad-soft:#3d1f1a;
+  --base:#3b4541; --plan:#6c7873; --ubp-blue:#7fa6ec; --ubp-green:#3fd68b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111614; --surface:#191f1d; --surface-2:#1f2624; --ink:#e4eae7; --muted:#97a39e; --line:#2d3532;
+  --accent:#6fb4ca; --accent-soft:#1d3640; --on-accent:#0d1a1f;
+  --ok:#5fbf86; --ok-soft:#1b3326; --warn:#e2aa4c; --warn-soft:#3a2d15; --bad:#ef7561; --bad-soft:#3d1f1a;
+  --base:#3b4541; --plan:#6c7873; --ubp-blue:#7fa6ec; --ubp-green:#3fd68b; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.45;padding-inline:16px;padding-block:0 40px}
+.wrap{max-width:1280px;margin:0 auto}
+h1,h2,h3{text-wrap:balance;margin:0}
+h2{font-size:17px;font-weight:600}
+h3{font-size:14px;font-weight:600}
+.num,.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:500}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;padding-block:20px 14px}
+.orgbar{display:flex;align-items:center;gap:12px;padding-block:14px 12px;border-bottom:1px solid var(--line)}
+.ubp{height:22px;width:auto;flex:0 0 auto}
+.ubp-g{fill:var(--ubp-green)} .ubp-b{fill:var(--ubp-blue)}
+.orgname{font-weight:600;font-size:12.5px;letter-spacing:.14em;color:var(--ubp-blue)}
+.brand{display:flex;gap:14px;align-items:center;min-width:0}
+.ptext{display:flex;flex-direction:column;gap:2px;min-width:0}
+/* the logo animation ends on its static mark; the box crops the mark out of the 16:9 frame */
+.plogo{position:relative;flex:0 0 auto;width:92px;height:71px;border-radius:8px;overflow:hidden;background:#fcfdfa;border:1px solid var(--line)}
+.plogo video{position:absolute;width:210.3px;height:118.3px;left:-59.1px;top:-20.8px}
+.plogo img{width:100%;height:100%;object-fit:contain}
+.brand h1{font-size:22px;font-weight:700;letter-spacing:-.01em}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--muted)}
+.inp{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-height:36px}
+textarea.inp{min-height:72px;resize:vertical;width:100%}
+.sample{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--warn-soft);color:var(--ink);border-radius:6px;padding:8px 12px;font-size:13px;margin-bottom:12px}
+.sample b{color:var(--warn)}
+
+/* tabs */
+.tabs{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:18px}
+.tab{background:none;border:0;border-bottom:2px solid transparent;padding:10px 14px;white-space:nowrap;color:var(--muted);font-weight:500}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab .count{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:var(--bad);color:var(--surface);font-size:11px;margin-left:6px;font-family:var(--f-mono)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px}
+.stack{display:flex;flex-direction:column;gap:18px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+.grid2>*{min-width:0}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.kpi{background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.kpi .v{font-family:var(--f-mono);font-size:26px;font-weight:500;letter-spacing:-.02em}
+.kpi .s{font-size:12px;color:var(--muted)}
+
+/* status pill */
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.st-ok{color:var(--ok);background:var(--ok-soft)}
+.st-risk{color:var(--warn);background:var(--warn-soft)}
+.st-late{color:var(--bad);background:var(--bad-soft)}
+.st-done{color:var(--accent);background:var(--accent-soft)}
+.st-future{color:var(--muted);background:var(--surface-2)}
+.st-nodata{color:var(--ink);background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.c-nodata{background:var(--plan);color:var(--plan)}
+.chip.nodata{color:var(--muted);background:var(--surface-2);border-left-style:dotted}
+.st-pending{color:var(--warn);background:var(--warn-soft)}
+.st-approved{color:var(--ok);background:var(--ok-soft)}
+.st-returned,.st-info{color:var(--bad);background:var(--bad-soft)}
+
+/* activity card */
+.acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.acard{border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--surface);text-align:left;width:100%}
+.acard:hover{border-color:var(--accent)}
+.acard .t{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.acard .nm{font-weight:600}
+.bar{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%}
+.prow{display:grid;grid-template-columns:100px 1fr 48px;gap:8px;align-items:center;font-size:12.5px}
+.prow .num{text-align:right}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;font-size:12.5px;border-top:1px solid var(--line);padding-top:10px}
+.facts b{display:block;font-family:var(--f-mono);font-weight:500;font-size:13px}
+.neg{color:var(--bad)} .pos{color:var(--ok)}
+
+/* tables */
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-size:11.5px;font-weight:500;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td.r,th.r{text-align:right}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--surface-2)}
+
+/* gantt */
+.gtools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:18px;height:8px;border-radius:2px}
+.gantt{--lw:430px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface);max-height:70vh}
+.g-row{display:flex;min-height:44px;border-bottom:1px solid var(--line)}
+.g-row.hd{position:sticky;top:0;z-index:3;background:var(--surface);min-height:40px}
+.g-left{position:sticky;left:0;z-index:2;background:var(--surface);flex:0 0 var(--lw);display:grid;grid-template-columns:48px 1fr 46px 46px 50px 50px;gap:6px;align-items:center;padding:4px 10px;border-right:1px solid var(--line);font-size:12.5px}
+.g-left .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-left .nm small{display:block;color:var(--muted);font-size:11px}
+.g-left .num{text-align:right}
+.g-row:not(.hd):hover .g-left,.g-row:not(.hd):hover .g-track{background:var(--surface-2)}
+.g-row:not(.hd){cursor:pointer}
+.g-track{position:relative;flex:0 0 auto}
+.g-month{position:absolute;top:0;bottom:0;border-left:1px solid var(--line)}
+.g-month span{position:absolute;top:4px;left:5px;font-size:11px;color:var(--muted);white-space:nowrap}
+.g-day{position:absolute;bottom:3px;font-size:10px;color:var(--muted);font-family:var(--f-mono);transform:translateX(-50%)}
+.b-base{position:absolute;top:9px;height:9px;border-radius:2px;background:var(--base)}
+.b-act{position:absolute;top:23px;height:11px;border-radius:2px}
+.b-fc{position:absolute;top:23px;height:11px;border-radius:2px;border:1.5px dashed currentColor;background:repeating-linear-gradient(135deg,transparent 0 4px,color-mix(in srgb,currentColor 22%,transparent) 4px 6px)}
+.sdl{position:absolute;top:0;bottom:0;width:0;border-left:2px solid var(--accent);z-index:1}
+.sdl.lbl::after{content:attr(data-l);position:absolute;top:22px;left:4px;font-size:10.5px;background:var(--accent);color:var(--on-accent);padding:0 5px;border-radius:3px;white-space:nowrap;font-family:var(--f-mono)}
+.c-ok{background:var(--ok);color:var(--ok)} .c-risk{background:var(--warn);color:var(--warn)} .c-late{background:var(--bad);color:var(--bad)} .c-done{background:var(--accent);color:var(--accent)} .c-future{background:var(--plan);color:var(--plan)}
+.b-fc.c-ok,.b-fc.c-risk,.b-fc.c-late,.b-fc.c-done,.b-fc.c-future{background-color:transparent}
+
+/* calendar */
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-left:1px solid var(--line);border-top:1px solid var(--line)}
+.cal-wrap{overflow-x:auto}
+.cal-inner{min-width:700px}
+.cal .dh{font-size:11.5px;color:var(--muted);padding:6px 8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface-2)}
+.cell{min-height:104px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:5px;display:flex;flex-direction:column;gap:3px;background:var(--surface);text-align:left;border-top:0;border-left:0}
+.cell.out{background:var(--surface-2);opacity:.6}
+.cell.today{box-shadow:inset 0 0 0 2px var(--accent)}
+.cell.sel{background:var(--accent-soft)}
+.cell .d{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.chip{font-size:11px;border-radius:3px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:3px solid currentColor}
+.chip.ok{color:var(--ok);background:var(--ok-soft)} .chip.risk{color:var(--warn);background:var(--warn-soft)} .chip.late{color:var(--bad);background:var(--bad-soft)} .chip.done{color:var(--accent);background:var(--accent-soft)} .chip.future{color:var(--muted);background:var(--surface-2)}
+.chip b{font-weight:600}
+.more{font-size:11px;color:var(--muted)}
+.week .cell{min-height:260px}
+
+/* forms & review */
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:7px 14px;font-weight:500;min-height:36px}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.ok{background:var(--ok);color:var(--surface);border-color:var(--ok)}
+.btn.bad{color:var(--bad);border-color:var(--bad)}
+.btn.sm{padding:3px 10px;min-height:28px;font-size:12.5px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 12px;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.form .full{grid-column:1/-1}
+.form .inp{width:100%}
+.hint{font-size:12px;color:var(--muted)}
+.err{font-size:12.5px;color:var(--bad)}
+.rv{border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.rv .t{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.delta{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px}
+.delta b{display:block;font-family:var(--f-mono);font-size:15px;font-weight:500}
+.photos{display:flex;gap:6px;flex-wrap:wrap}
+.photos img{width:84px;height:64px;object-fit:cover;border-radius:4px;border:1px solid var(--line)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.note{background:var(--surface-2);border-radius:6px;padding:8px 10px;font-size:13px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:6px;font-size:13px;z-index:50}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:color-mix(in srgb,var(--ink) 35%,transparent);z-index:30}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--surface);z-index:31;overflow-y:auto;padding:20px 20px calc(30px + env(safe-area-inset-bottom,0px));border-left:1px solid var(--line);display:flex;flex-direction:column;gap:16px}
+.drawer .x{position:absolute;top:12px;right:12px}
+
+/* s-curve */
+.scurve svg{width:100%;height:auto;display:block}
+.scurve text{fill:var(--muted);font-size:10.5px;font-family:var(--f-mono)}
+.reasons{display:flex;flex-direction:column;gap:8px}
+.reason{display:grid;grid-template-columns:1fr 2fr 24px;gap:10px;align-items:center;font-size:13px}
+.reason .bar i{background:var(--warn)}
+.b-cur{position:absolute;top:4px;height:3px;border-radius:2px;background:var(--accent)}
+.steps{display:flex;flex-wrap:wrap;gap:4px;font-size:11.5px}
+.steps span{padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.steps span.done{background:var(--ok-soft);color:var(--ok);border-color:transparent}
+.steps span.now{background:var(--accent);color:var(--on-accent);border-color:transparent}
+.steps span.no{background:var(--bad-soft);color:var(--bad);border-color:transparent}
+.hist{display:flex;flex-direction:column;gap:6px;font-size:12.5px;border-left:2px solid var(--line);padding-left:10px}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px}
+.flow b{font-weight:500;background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:3px 9px}
+.lock{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--accent);background:var(--accent-soft);padding:2px 9px;border-radius:999px}
+@media (max-width:640px){
+  .g-left{grid-template-columns:40px 1fr 44px}
+  .g-left .hide-sm{display:none}
+  .gantt{--lw:200px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="orgbar">
+    <svg class="ubp" viewBox="0 0 2000 657" role="img" aria-label="UBP">
+      <g class="ubp-g"><path d="M0 125 177 0v130L0 255Z"/><path d="M0 300 355 52v130L0 430Z"/><path d="M0 475 355 227v130L0 605Z"/><path d="M177 525 355 402v130L177 657Z"/></g>
+      <g class="ubp-b" fill-rule="evenodd">
+        <path d="M448 51h95v329a56 56 0 0 0 56 56h229V51h94v323L703 528H593a145 145 0 0 1-145-145Z"/>
+        <path d="M1002 209 1227 51h99a141 141 0 0 1 106 239 141 141 0 0 1-106 238h-324ZM1097 147h229a47 47 0 0 1 0 94h-122v97h122a47 47 0 0 1 0 94h-229Z"/>
+        <path d="M1528 206 1750 51h110a143 143 0 0 1 0 286h-215l138-96h77a46.5 46.5 0 0 0 0-93h-238v380h-94Z"/>
+      </g>
+    </svg>
+    <span class="orgname">УЛЗ БУЯНТ ПРОПЕРТИЗ</span>
+  </div>
+  <header class="top">
+    <div class="brand">
+      <div class="plogo" aria-label="VIP Lite Residence лого">
+        <video id="plogoV" src="viplite-logo.mp4" muted playsinline preload="auto" aria-hidden="true" hidden></video>
+        <img id="plogoI" src="viplite-logo.jpg" alt="VIP Residence Lite">
+      </div>
+      <div class="ptext">
+        <span class="eyebrow">Календарчилсан графикийн хяналт</span>
+        <h1 id="pname">—</h1>
+        <span class="muted" id="pmeta"></span>
+      </div>
+    </div>
+    <div class="controls">
+      <div class="field"><label for="sd">Тайлангийн өдөр</label><input class="inp num" type="date" id="sd"></div>
+      <div class="field"><label for="role">Хэрэглэгчийн үүрэг</label>
+        <select class="inp" id="role">
+          <option value="engineer">Хяналтын инженер</option>
+          <option value="contractor">Гүйцэтгэгч</option>
+          <option value="planner">Төлөвлөлтийн инженер</option>
+          <option value="pm">Төслийн удирдагч</option>
+          <option value="director">Гүйцэтгэх захирал</option>
+          <option value="owner">Захиалагч (зөвхөн харах)</option>
+        </select></div>
+      <div class="field"><label for="basis">Харьцуулах төлөвлөгөө</label><select class="inp" id="basis"></select></div>
+      <div class="field" id="meWrap" hidden><label for="me">Гүйцэтгэгч байгууллага</label><select class="inp" id="me"></select></div>
+    </div>
+  </header>
+  <div class="sample" id="sampleBar"><span><b>Гүйцэтгэлийн тайлан хараахан ороогүй.</b> Батлагдсан мастер графикийн ажлууд анхны төлөвлөгөө болж түгжигдсэн. Гүйцэтгэгч тайлан илгээж, инженер батлах үед бодит явц, хоцрогдол тооцогдоно. Одоогоор өгөгдөл зөвхөн энэ хөтөч дээр хадгалагдана.</span><button class="btn sm" id="goImport">Төлөвлөгөөг харах</button></div>
+  <nav class="tabs" role="tablist" id="tabs"></nav>
+  <main id="view"></main>
+</div>
+<div id="drawerRoot"></div>
+
+<script>
+(function(){
+const DAY=864e5, K='cpc-viplite-v4';
+const toN=s=>{const[y,m,d]=s.split('-').map(Number);return Math.round(Date.UTC(y,m-1,d)/DAY)};
+const toS=n=>new Date(n*DAY).toISOString().slice(0,10);
+const fmt=n=>{const d=new Date(n*DAY);return `${d.getUTCFullYear()}.${String(d.getUTCMonth()+1).padStart(2,'0')}.${String(d.getUTCDate()).padStart(2,'0')}`};
+const fmtL=n=>{const d=new Date(n*DAY);return `${d.getUTCMonth()+1}-р сарын ${d.getUTCDate()}`};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const r1=x=>Math.round(x*10)/10;
+const sign=x=>(x>0?'+':x<0?'−':'')+Math.abs(Math.round(x));
+const ST={done:'Дууссан',late:'Хоцрогдолтой',risk:'Эрсдэлтэй',ok:'Хэвийн',future:'Эхлээгүй',nodata:'Тайлангүй'};
+const RS={pending:'Хяналт хүлээж буй',approved:'Батлагдсан',returned:'Буцаасан',info:'Тайлбар шаардсан'};
+const REASONS=['Материал хоцорсон','Ажиллах хүч дутсан','Цаг агаар','Техник эвдэрсэн','Өмнөх ажил дуусаагүй','Зураг төсөл өөрчлөгдсөн','Санхүүжилт','Бусад'];
+const MON=['Даваа','Мягмар','Лхагва','Пүрэв','Баасан','Бямба','Ням'];
+
+function seed(){
+  // Эх сурвалж: Батлагдсан мастер график 2026.04.06 (ажил, огноо; MS Project ID-г код болгов),
+  // Гүйцэтгэгч сонгон шалгаруулах төлөвлөгөө (гүйцэтгэгч), TIME report 2026.08.20 ба LITE төлөвлөгөө гүйцэтгэл 2026.09.22 (жин, явц).
+  const C=[
+    ['g1','Гол хугацаа','Захиалагч · гол үе шат'],['g2','Гол материал','Захиалагч · худалдан авалт'],
+    ['k1','Вэллбэйс ХХК','Төмөр бетон бүтээц'],['k2','Эрдэнэүйлс, Баргилт','Өрлөг, шавардлага, засал'],['k3','Ди эс констракшн ХХК','Хар шал'],
+    ['k4','Дэльта лифт ХХК','Цахилгаан шат'],['k5','Соёмбо цонх ХХК','Цонх'],['k6','Сүнчирхайрхан ХХК','Төмрийн ажил'],
+    ['k7','Стандарт материал ХХК','Фасад'],['k8','Рийч энержи ХХК','Дээвэр'],['k9','Гом илч, Модерн хас ХХК','Сантехник (халаалт, ус)'],
+    ['k10','Провенд монголиа ХХК','Салхивч, ERV'],['k11','ПДСольюшн ХХК','Цахилгаан, холбоо дохиолол'],['k12','Юнистийл ХХК','Төмөр бетон бүтээц'],
+    ['k13','Цонх констракшн ХХК','Цонх'],['k14','Мянганы баталгаа','Засал'],['k15','Хэрэйд констракшн ХХК','Фасад'],
+    ['k16','Чандмань цамхаг ХХК','Төмөр бетон, өрлөг'],['k17','Чандмань Бэрхээ, БМСБ ХХК','Шавардлага'],['k18','Дип, БМСБ ХХК','Хар шал, засал'],
+    ['k19','Сахиб','Дээвэр'],['k20','Гом илч ХХК','Халаалтын узель'],['k21','Модерн хас ХХК','Цэвэр усны узель'],
+    ['g6','Гадна тохижилт','Гүйцэтгэгч тодорхойгүй'],['g7','Гадна ИШС','Гүйцэтгэгч тодорхойгүй']
+  ].map(([id,name,scope])=>({id,name,scope}));
+  const GH='Гол хугацаа',GM='Гол материал',AB='A блок',BB='Б блок',CD='C, D граж',TO='Гадна тохижилт',IS='Гадна ИШС';
+  // [код, нэр, блок, гүйцэтгэгч, эхлэх, дуусах, жин (блок доторх эзлэх хувь), өмнөх ажил]
+  const A=[
+    ['3','Ажил эхлэх',GH,'g1','2026-03-01','2026-08-08',0],
+    ['4','Кран буух',GH,'g1','2026-08-19','2026-08-25',0,['747']],
+    ['5','Подьём угсрах, буух',GH,'g1','2026-05-01','2026-09-14',0],
+    ['6','Барилга битүүрэх',GH,'g1','2026-06-05','2026-09-30',0],
+    ['7','Дулаан авах',GH,'g1','2026-10-01','2026-10-02',0,['6']],
+    ['8','Комисст хүлээлгэн өгөх',GH,'g1','2027-01-31','2027-02-04',0],
+    ['10','Арматур',GM,'g2','2026-03-01','2026-08-02',0],
+    ['11','Бетон',GM,'g2','2026-03-01','2026-08-02',0],
+    ['12','Блок',GM,'g2','2026-04-26','2026-09-11',0],
+    ['13','Хар замаск',GM,'g2','2026-05-07','2026-10-10',0],
+    ['14','Цонхны тавцан чулуу',GM,'g2','2026-08-21','2026-08-26',0],
+    ['15','Гипсэн хавтан',GM,'g2','2026-08-17','2026-10-27',0],
+    ['16','Профил төмөр',GM,'g2','2026-08-17','2026-10-27',0],
+    ['17','Гадна хаалга',GM,'g2','2026-09-03','2026-09-08',0],
+    ['18','Галын хаалга',GM,'g2','2026-09-03','2026-09-08',0],
+    ['19','Ариун цэврийн өрөөний тааз',GM,'g2','2026-09-17','2026-09-21',0],
+    ['20','Обой',GM,'g2','2026-09-17','2026-09-21',0],
+    ['21','Эмульс',GM,'g2','2026-09-17','2026-09-21',0],
+    ['22','Дотор хаалга',GM,'g2','2026-09-17','2026-09-21',0],
+    ['23','Паркет',GM,'g2','2026-09-21','2026-09-26',0],
+    ['24','Шатны чулуу',GM,'g2','2026-09-03','2026-09-08',0],
+    ['25','Плита',GM,'g2','2026-08-26','2026-08-26',0],
+    ['26','Галын шат, таг',GM,'g2','2026-09-17','2026-09-21',0],
+    ['27','АЦӨ тоноглол',GM,'g2','2026-09-26','2026-09-30',0],
+    ['28','Гэрэл',GM,'g2','2026-09-26','2026-09-30',0],
+    ['29','Радиатор',GM,'g2','2026-09-26','2026-09-30',0],
+    ['31','Төмөр бетон бүтээц 2025',AB,'k1','2025-10-01','2025-11-14',0],
+    ['35','Төмөр бетон бүтээц 2026',AB,'k1','2026-03-01','2026-08-14',33],
+    ['54','Өрлөгийн ажил',AB,'k2','2026-05-01','2026-08-26',2],
+    ['93','Шавардлагын ажил /тортой хар замаск/',AB,'k2','2026-05-11','2026-09-05',2],
+    ['130','Хар шал цутгалтын ажил',AB,'k3','2026-05-31','2026-09-12',2],
+    ['165','Дотор заслын ажил',AB,'k2','2026-08-21','2026-12-18',21],
+    ['678','Цахилгаан шатны ажил',AB,'k4','2026-08-10','2026-11-06',2],
+    ['680','Цонхны ажил',AB,'k5','2026-06-05','2026-12-17',2],
+    ['718','Төмрийн ажил',AB,'k6','2026-09-11','2026-12-07',1],
+    ['722','Фасадны ажил',AB,'k7','2026-06-01','2026-12-30',16],
+    ['747','Дээврийн ажил',AB,'k8','2026-08-05','2026-08-18',2],
+    ['748','Сантехникийн ажил',AB,'k9','2026-03-15','2026-12-11',7],
+    ['1042','Салхивчны ердийн систем',AB,'k10','2026-03-15','2026-12-11',2],
+    ['1083','ERV систем',AB,'k10','2026-08-23','2026-12-01',1],
+    ['1150','Цахилгааны ажил',AB,'k11','2026-03-05','2026-12-01',7],
+    ['1294','Төмөр бетон бүтээц',BB,'k12','2026-04-01','2026-06-29',32],
+    ['1305','Цонхны ажил',BB,'k13','2026-08-01','2026-09-20',2],
+    ['1313','Дотор засал',BB,'k14','2026-09-05','2026-09-18',21],
+    ['1316','Фасадны ажил',BB,'k15','2026-08-01','2026-10-28',16],
+    ['1327','Дээврийн ажил',BB,'k8','2026-06-02','2026-07-31',2],
+    ['1330','Сантехникийн ажил',BB,'k9','2026-03-05','2026-12-01',3],
+    ['1367','Цахилгааны ажил',BB,'k11','2026-03-05','2026-12-01',7],
+    ['1374','Төмөр бетон бүтээц — C блок',CD,'k16','2026-06-20','2026-08-05',19],
+    ['1382','Төмөр бетон бүтээц — D блок',CD,'k16','2026-04-01','2026-05-02',13],
+    ['1390','Өрлөгийн ажил',CD,'k16','2026-08-28','2026-10-11',2,['1374']],
+    ['1391','Шавар, тортой хар замаск',CD,'k17','2026-09-14','2026-10-29',2,['1390']],
+    ['1392','Хар шал цутгалтын ажил',CD,'k18','2026-10-02','2026-11-15',2,['1391']],
+    ['1393','Дотор заслын ажил',CD,'k18','2026-10-11','2026-12-03',21,['1392']],
+    ['1394','Чулуун фасадны ажил',CD,'k7','2026-06-08','2026-10-20',16],
+    ['1399','Дээврийн ажил /ашиглалттай-C/',CD,'k19','2026-07-08','2026-08-09',2],
+    ['1400','Дотор халаалтын узель',CD,'k20','2026-07-01','2026-09-02',1],
+    ['1404','Дотор цэвэр усны узель',CD,'k21','2026-07-01','2026-08-14',1],
+    ['1408','Цахилгааны ажил',CD,'k11','2026-09-01','2026-10-24',7],
+    ['1412','Салхивчны механик систем',CD,'k10','2026-09-14','2026-10-21',2],
+    ['1416','Явган зам',TO,'g6','2026-08-10','2026-09-14',1,['1399']],
+    ['1417','Авто зам',TO,'g6','2026-08-10','2026-09-14',1,['1416']],
+    ['1418','Ногоон байгууламж',TO,'g6','2026-08-28','2026-10-02',1,['1416']],
+    ['1419','Тохижилт',TO,'g6','2026-08-28','2026-10-02',1,['1416']],
+    ['1421','Гадна цахилгаан',IS,'g7','2026-06-20','2026-08-03',1],
+    ['1422','Гадна дулаан',IS,'g7','2026-06-20','2026-08-03',1],
+    ['1423','Гадна цэвэр ус',IS,'g7','2026-06-20','2026-08-03',1],
+    ['1424','Гадна бохир',IS,'g7','2026-06-20','2026-08-03',1],
+    ['1425','Гадна холбоо дохиолол',IS,'g7','2026-06-20','2026-08-03',1]
+  ].map(([id,name,blk,c,bs,be,w,pred])=>({id,name,blk,c,bs,be,qty:100,unit:'%',w,pred:pred||[],as:null,af:null}));
+  const T08='ТӨСЛИЙН ХУГАЦАА ГҮЙЦЭТГЭЛИЙН ТАЙЛАН.xlsx (2026.08.20)',P09='LITE төлөвлөгөө гүйцэтгэл.xlsx (2026.09.22)',ZS='lite Засал тайлан төлөвлөгөө (2).xlsx (2026.10.15)',NS=' Бодит эхэлсэн огноо тайланд байхгүй тул төлөвлөсөн эхлэх огноог авав.';
+  let n=0;const R=(a,date,qty,status,o={})=>({id:'r'+(++n),a,date,qty,status,note:o.note||'',reason:'',comment:o.comment||'',reviewer:status==='pending'?'':'Хяналтын инженер',photos:[],startDate:o.start||''});
+  const reports=[
+    R('35','2026-07-28',100,'approved',{start:'2026-03-01',note:P09+': 100%, бодит хугацаа 2026.03.01 – 2026.07.28.'}),
+    R('54','2026-08-20',58.8,'approved',{start:'2026-04-27',note:T08}),
+    R('54','2026-09-22',83.3,'approved',{note:P09}),
+    R('93','2026-08-20',35.3,'approved',{start:'2026-05-27',note:T08}),
+    R('93','2026-09-22',17.6,'info',{note:P09,comment:'08.20-ны TIME report-д 35.3% байсан бол энэ тайланд 17.6% болж буурсан. Аль нь зөв болохыг тодруулна уу.'}),
+    R('130','2026-08-20',18.8,'approved',{start:'2026-06-14',note:T08}),
+    R('130','2026-09-22',0,'info',{note:P09,comment:'08.20-ны TIME report-д 18.8% байсан бол энэ тайланд 0% байна. Аль нь зөв болохыг тодруулна уу.'}),
+    R('680','2026-08-20',15.6,'approved',{start:'2026-06-05',note:T08+'.'+NS}),
+    R('722','2026-08-20',12.2,'approved',{start:'2026-06-01',note:T08+'.'+NS}),
+    R('748','2026-08-20',17.7,'approved',{start:'2026-03-15',note:T08+' (Халаалт, ЦБУ).'+NS}),
+    R('1042','2026-08-20',30,'approved',{start:'2026-06-02',note:T08}),
+    R('1150','2026-08-20',4.8,'approved',{start:'2026-03-05',note:T08+' (ЦХДохиоллын ажил).'+NS}),
+    R('1294','2026-08-20',56,'approved',{start:'2026-05-30',note:T08+' (Б блок).'}),
+    // БУА явцын нэгтгэл (A блок засал, фасад): 1-р, 2-р орцны дунджаар; фасад нь метал, шилэн фасадын дундаж
+    R('165','2026-10-01',34.2,'approved',{start:'2026-08-21',note:'lite Засал тайлан төлөвлөгөө.xlsx (2026.10.01): 1-р орц 34.0%, 2-р орц 34.4%.'+NS}),
+    R('165','2026-10-08',39.7,'approved',{note:ZS+': өмнөх 7 хоног — 1-р орц 39.7%, 2-р орц 39.8%.'}),
+    R('165','2026-10-15',45.9,'approved',{note:ZS+': тайлант 7 хоног — 1-р орц 43.6%, 2-р орц 48.3%.'}),
+    R('722','2026-10-01',73.3,'approved',{note:'lite Засал тайлан төлөвлөгөө.xlsx (2026.10.01): метал фасад 80%, шилэн фасад 66.7%.'}),
+    R('722','2026-10-15',73.3,'approved',{note:ZS+': метал фасад 80% (метал хавтан 50%), шилэн фасад 66.7%. Шилэн багц суулгах 0% — төлөвлөгөөгөөр 09.30-нд дуусах ёстой байсан.'})
+  ];
+  // Батлагдсан тайлангаас бодит эхэлсэн, дууссан огноог тогтооно
+  for(const r of reports){if(r.status!=='approved')continue;const a=A.find(x=>x.id===r.a);if(!a.as)a.as=r.startDate||r.date;if(r.qty>=100)a.af=r.date}
+  return {sample:false,project:{name:'VIP LITE RESIDENCE',meta:'Нүхт-LINE барилга угсралт · Батлагдсан мастер график 2026.04.06 · 2025.10.01 – 2027.02.04'},statusDate:'2026-10-15',role:'engineer',me:'k2',contractors:C,acts:A,reports,
+    revs:[{v:1,date:'2026-04-06',by:'Гүйцэтгэх захирал',note:'Батлагдсан мастер график 20260406.pdf (анхны төлөвлөгөө)'}],
+    audit:[
+      {t:'2026-10-15T12:30',u:'Систем',a:'A блокийн засал, фасадын долоо хоногийн тайлан (10.01, 10.08, 10.15) оруулав',x:'lite Засал тайлан төлөвлөгөө (2).xlsx'},
+      {t:'2026-10-15T12:00',u:'Систем',a:'TIME report (08.20) ба төлөвлөгөө-гүйцэтгэлийн (09.22) тайлангаас 13 тайлан оруулав',x:'Зөрчилтэй 2 тайланг "Тайлбар шаардсан" төлөвт үлдээв'},
+      {t:'2026-04-06T18:17',u:'Төлөвлөлтийн инженер',a:'Мастер график батлагдаж анхны төлөвлөгөө (Baseline v1) болж түгжигдсэн',x:'Батлагдсан мастер график 20260406.pdf'}],tab:'dash'};
+}
+let S;
+try{S=JSON.parse(localStorage.getItem(K))}catch(e){}
+if(!S||!S.acts)S=seed();
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Хөтөчид хадгалах зай хүрэлцэхгүй байна')}};
+const nowStamp=()=>new Date().toISOString().slice(0,16);
+const log=(u,a,x='')=>S.audit.unshift({t:nowStamp(),u,a,x});
+const actById=id=>S.acts.find(a=>a.id===id);
+const cName=id=>(S.contractors.find(c=>c.id===id)||{}).name||id;
+const who=a=>(a.blk?a.blk+' · ':'')+cName(a.c);
+const ROLES={engineer:'Хяналтын инженер',planner:'Төлөвлөлтийн инженер',pm:'Төслийн удирдагч',director:'Гүйцэтгэх захирал',owner:'Захиалагч'};
+const userName=()=>S.role==='contractor'?cName(S.me):ROLES[S.role];
+// Older saves predate revisions: the approved baseline is v1 and the current plan starts equal to it
+function norm(){
+  if(!S.crs)S.crs=[];
+  if(!S.revs)S.revs=[{v:1,date:S.acts.reduce((m,a)=>a.bs<m?a.bs:m,'9999'),by:'Гүйцэтгэх захирал',note:'Анхны батлагдсан төлөвлөгөө (Baseline)'}];
+  if(!S.basis)S.basis='base';
+  if(S.project.name==='VIP LITE · Нүхт-LINE барилга угсралт')S.project={name:'VIP LITE RESIDENCE',meta:'Нүхт-LINE барилга угсралт · '+S.project.meta};
+  for(const a of S.acts){if(!a.cs){a.cs=a.bs;a.ce=a.be}}
+}
+const pS=a=>toN(S.basis==='cur'?a.cs:a.bs),pE=a=>toN(S.basis==='cur'?a.ce:a.be);
+const changed=a=>a.cs!==a.bs||a.ce!==a.be;
+
+/* ---------- calculations ---------- */
+function plannedAt(a,d){const bS=pS(a),bE=pE(a);if(d<bS)return 0;if(d>=bE)return 100;return (d-bS+1)/(bE-bS+1)*100}
+function actualAt(a,d){let best=null;for(const r of S.reports){if(r.a===a.id&&r.status==='approved'&&toN(r.date)<=d&&(!best||r.date>best.date))best=r}return best?Math.min(100,best.qty/a.qty*100):0}
+function compute(){
+  const sd=toN(S.statusDate),M={};
+  const m=a=>{
+    if(M[a.id])return M[a.id];
+    M[a.id]={fF:toN(a.be)};// guard against cycles
+    const bS=pS(a),bE=pE(a),dur=bE-bS+1;
+    const planned=plannedAt(a,sd),actual=actualAt(a,sd);
+    let predF=-Infinity;for(const p of a.pred){const pa=actById(p);if(pa)predF=Math.max(predF,m(pa).fF)}
+    const as=a.as&&toN(a.as)<=sd?toN(a.as):null;
+    const af=a.af&&toN(a.af)<=sd&&actual>=100?toN(a.af):null;
+    const pend=S.reports.filter(r=>r.a===a.id&&r.status==='pending').length;
+    // Should have started but no approved report yet: progress unknown, so keep baseline dates instead of guessing a forecast
+    if(as==null&&bS<=sd&&!S.reports.some(r=>r.a===a.id&&r.status==='approved'))
+      return M[a.id]={a,planned,actual,v:actual-planned,bS,bE,dur,as,af,fS:bS,fF:bE,fv:0,st:'nodata',pend};
+    let fS,fF;
+    if(af!=null){fS=as??af;fF=af}
+    else if(as!=null){
+      // productivity up to the latest approved report, remaining work continues from the status date
+      let ld=as;for(const r of S.reports)if(r.a===a.id&&r.status==='approved'&&toN(r.date)<=sd)ld=Math.max(ld,toN(r.date));
+      // capped at twice the planned duration: a very low early rate otherwise projects years out
+      const rate=actual/Math.max(1,ld-as+1);fS=as;fF=sd+Math.min(2*dur,rate>0?Math.ceil((100-actual)/rate):dur)}
+    else{fS=Math.max(bS,sd,predF+1);if(bS>sd&&predF<bS)fS=bS;fF=fS+dur-1}
+    const v=actual-planned,fv=fF-bE;
+    let st;
+    if(actual>=100)st='done';
+    else if(bS>sd)st=fv<=0?'future':'risk';// not due yet: a slip comes from predecessors
+    else if(fv>5||v<-15)st='late';
+    else if(fv>0||v<-5)st='risk';
+    else st='ok';
+    return M[a.id]={a,planned,actual,v,bS,bE,dur,as,af,fS,fF,fv,st,pend};
+  };
+  S.acts.forEach(m);return M;
+}
+function totals(M,d){
+  const W=S.acts.reduce((s,a)=>s+a.w,0)||1;
+  const sd=d??toN(S.statusDate);
+  return {plan:S.acts.reduce((s,a)=>s+a.w*plannedAt(a,sd),0)/W,act:S.acts.reduce((s,a)=>s+a.w*actualAt(a,sd),0)/W};
+}
+
+/* ---------- shell ---------- */
+const TABS=[['dash','Хяналтын самбар'],['gantt','Gantt график'],['cal','Календарь'],['rev','Гүйцэтгэл ба хяналт'],['cr','Хугацааны өөрчлөлт'],['plan','Төлөвлөгөө'],['log','Өөрчлөлтийн түүх']];
+const $=id=>document.getElementById(id);
+let calMode='month',calAnchor=null,calSel=null,zoom='week',editFrom=null;
+function render(){
+  norm();
+  const M=compute();
+  $('pname').textContent=S.project.name;$('pmeta').textContent=S.project.meta;
+  $('sd').value=S.statusDate;$('role').value=S.role;
+  $('meWrap').hidden=S.role!=='contractor';
+  $('me').innerHTML=S.contractors.map(c=>`<option value="${c.id}" ${c.id===S.me?'selected':''}>${esc(c.name)}</option>`).join('');
+  $('sampleBar').hidden=S.reports.some(r=>r.status==='approved');
+  const pend=S.reports.filter(r=>r.status==='pending').length;
+  const turn=S.crs.filter(myTurn).length;
+  $('basis').innerHTML=`<option value="base">Анхны төлөвлөгөө (v1)</option><option value="cur">Одоогийн хувилбар (v${S.revs.length})</option>`;$('basis').value=S.basis;
+  $('tabs').innerHTML=TABS.map(([k,l])=>`<button class="tab" role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}${k==='rev'&&pend&&S.role==='engineer'?`<span class="count">${pend}</span>`:''}${k==='cr'&&turn?`<span class="count">${turn}</span>`:''}</button>`).join('');
+  const v=$('view');
+  ({dash:viewDash,gantt:viewGantt,cal:viewCal,rev:viewRev,cr:viewCR,plan:viewPlan,log:viewLog})[S.tab](v,M);
+}
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-tab]');if(t){S.tab=t.dataset.tab;save();render();return}
+  const o=e.target.closest('[data-open]');if(o){openDrawer(o.dataset.open);return}
+});
+$('sd').addEventListener('change',e=>{if(e.target.value){S.statusDate=e.target.value;save();render()}});
+$('role').addEventListener('change',e=>{S.role=e.target.value;save();render()});
+$('basis').addEventListener('change',e=>{S.basis=e.target.value;save();render()});
+$('me').addEventListener('change',e=>{S.me=e.target.value;save();render()});
+$('goImport').addEventListener('click',()=>{S.tab='plan';save();render()});
+function toast(msg){const d=document.createElement('div');d.className='toast';d.textContent=msg;document.body.appendChild(d);setTimeout(()=>d.remove(),2400)}
+
+const pill=st=>`<span class="pill st-${st}">${ST[st]}</span>`;
+const rpill=st=>`<span class="pill st-${st}">${RS[st]}</span>`;
+function actCard(x){
+  const a=x.a;
+  return `<button class="acard" data-open="${a.id}">
+    <div class="t"><div><div class="nm">${esc(a.name)}</div><div class="muted" style="font-size:12px">${esc(a.id)} · ${esc(who(a))}</div></div>${pill(x.st)}</div>
+    <div class="prow"><span class="muted">Төлөвлөсөн явц</span><div class="bar"><i style="width:${x.planned}%;background:var(--plan)"></i></div><span class="num">${Math.round(x.planned)}%</span></div>
+    <div class="prow"><span class="muted">Бодит явц</span><div class="bar"><i class="c-${x.st}" style="width:${x.actual}%"></i></div><span class="num">${Math.round(x.actual)}%</span></div>
+    <div class="facts">
+      <div><span class="muted">Гүйцэтгэлийн зөрүү</span><b class="${x.v<0?'neg':'pos'}">${sign(x.v)} нэгж хувь</b></div>
+      <div><span class="muted">Хугацааны зөрүү</span><b class="${x.fv>0?'neg':'pos'}">${x.fv>0?'+'+x.fv+' хоног':x.fv<0?x.fv+' хоног':'0 хоног'}</b></div>
+      <div><span class="muted">Төлөвлөсөн дуусах</span><b>${fmtL(x.bE)}</b></div>
+      <div><span class="muted">Дуусах прогноз</span><b>${fmtL(x.fF)}</b></div>
+      ${changed(a)?`<div style="grid-column:1/-1" class="hint">${S.basis==='cur'?`Анхны төлөвлөгөөгөөр дуусах: ${fmt(toN(a.be))}`:`Батлагдсан өөрчлөлтөөр дуусах: ${fmt(toN(a.ce))}`}</div>`:''}
+    </div></button>`;
+}
+
+/* ---------- dashboard ---------- */
+function viewDash(v,M){
+  const sd=toN(S.statusDate),xs=Object.values(M),T=totals(M);
+  const late=xs.filter(x=>x.st==='late'),risk=xs.filter(x=>x.st==='risk');
+  const pend=S.reports.filter(r=>r.status==='pending').length;
+  const bEnd=Math.max(...xs.map(x=>x.bE)),fEnd=Math.max(...xs.map(x=>x.fF));
+  const soon=xs.filter(x=>x.st!=='done'&&((x.bS>=sd&&x.bS<=sd+14)||(x.bE>=sd&&x.bE<=sd+14))).sort((a,b)=>Math.min(a.bS>=sd?a.bS:1e9,a.bE)-Math.min(b.bS>=sd?b.bS:1e9,b.bE));
+  // contractor performance (weighted)
+  const perf=S.contractors.map(c=>{
+    const ax=xs.filter(x=>x.a.c===c.id);const W=ax.reduce((s,x)=>s+x.a.w,0)||1;
+    const p=ax.reduce((s,x)=>s+x.a.w*x.planned,0)/W,ac=ax.reduce((s,x)=>s+x.a.w*x.actual,0)/W;
+    const active=ax.some(x=>x.a.w>0&&x.bS<=sd&&x.st!=='done');
+    const lastR=S.reports.filter(r=>ax.some(x=>x.a.id===r.a)).map(r=>toN(r.date)).filter(d=>d<=sd).sort((a,b)=>b-a)[0];
+    const overdue=active&&(lastR==null||sd-lastR>7);
+    return {c,n:ax.length,p,ac,late:ax.filter(x=>x.st==='late').length,lastR,overdue};
+  });
+  const rc={};S.reports.forEach(r=>{if(r.reason&&r.status!=='returned')rc[r.reason]=(rc[r.reason]||0)+1});
+  const rcs=Object.entries(rc).sort((a,b)=>b[1]-a[1]);const rmax=rcs[0]?rcs[0][1]:1;
+  v.innerHTML=`<div class="stack">
+  <div class="kpis">
+    <div class="kpi"><span class="eyebrow">Төлөвлөсөн явц</span><span class="v">${r1(T.plan)}%</span><span class="s">ажлын жингээр нэгтгэсэн</span></div>
+    <div class="kpi"><span class="eyebrow">Бодит явц</span><span class="v">${r1(T.act)}%</span><span class="s ${T.act-T.plan<0?'neg':'pos'}">${sign(T.act-T.plan)} нэгж хувь зөрүү</span></div>
+    <div class="kpi"><span class="eyebrow">Хоцрогдолтой ажил</span><span class="v ${late.length?'neg':''}">${late.length}</span><span class="s">эрсдэлтэй ${risk.length} · тайлангүй ${xs.filter(x=>x.st==='nodata').length}</span></div>
+    <div class="kpi"><span class="eyebrow">Хяналт хүлээж буй</span><span class="v">${pend}</span><span class="s">гүйцэтгэлийн тайлан</span></div>
+    <div class="kpi"><span class="eyebrow">Төсөл дуусах прогноз</span><span class="v" style="font-size:20px">${fmt(fEnd)}</span><span class="s ${fEnd>bEnd?'neg':'pos'}">төлөвлөгөө ${fmt(bEnd)} · ${fEnd>bEnd?'+'+(fEnd-bEnd)+' хоног':'хугацаандаа'}</span></div>
+  </div>
+  <div class="grid2">
+    <section class="panel scurve"><div class="head"><h2>Төлөвлөгөө ба бодит гүйцэтгэл (S-муруй)</h2><div class="legend"><span><i class="sw" style="background:var(--plan)"></i>Төлөвлөсөн</span><span><i class="sw" style="background:var(--accent)"></i>Бодит (батлагдсан)</span></div></div>${sCurve()}</section>
+    <section class="panel"><div class="head"><h2>Хоцрогдлын шалтгаан</h2><span class="hint">тайлангаар</span></div>
+      <div class="reasons">${rcs.length?rcs.map(([k,n])=>`<div class="reason"><span>${esc(k)}</span><div class="bar"><i style="width:${n/rmax*100}%"></i></div><span class="num">${n}</span></div>`).join(''):'<p class="muted">Шалтгаан бүртгэгдээгүй.</p>'}</div></section>
+  </div>
+  <section><div class="head"><h2>Анхаарах ажлууд</h2><span class="hint">Хоцрогдолтой болон эрсдэлтэй, ${fmt(sd)}-ны байдлаар</span></div>
+    <div class="acts">${[...late,...risk].sort((a,b)=>b.fv-a.fv).map(actCard).join('')||'<p class="muted">Хоцрогдолтой ажил алга.</p>'}</div></section>
+  <div class="grid2">
+    <section class="panel"><div class="head"><h2>Гүйцэтгэгчийн биелэлт</h2><span class="hint">Тайлан 7 хоногоос дээш ирээгүй бол тэмдэглэнэ</span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Гүйцэтгэгч</th><th class="r">Төл.</th><th class="r">Бодит</th><th class="r">Зөрүү</th><th class="r">Хоцорсон</th><th>Сүүлийн тайлан</th></tr></thead><tbody>
+      ${perf.map(p=>`<tr><td>${esc(p.c.name)}<div class="hint">${esc(p.c.scope||'')}</div></td><td class="r num">${Math.round(p.p)}%</td><td class="r num">${Math.round(p.ac)}%</td><td class="r num ${p.ac-p.p<0?'neg':'pos'}">${sign(p.ac-p.p)}</td><td class="r num">${p.late}</td><td>${p.lastR!=null?`<span class="num">${fmt(p.lastR)}</span>`:'—'}${p.overdue?'<div><span class="pill st-late">Тайлан ирүүлээгүй</span></div>':''}</td></tr>`).join('')}
+      </tbody></table></div></section>
+    <section class="panel"><div class="head"><h2>Ойрын 14 хоног</h2><span class="hint">эхлэх эсвэл дуусах ёстой</span></div>
+      <div class="tbl-wrap"><table><tbody>${soon.map(x=>{const st=x.bS>=sd;return `<tr class="click" data-open="${x.a.id}"><td class="num">${fmt(st?x.bS:x.bE)}</td><td>${st?'Эхлэх':'Дуусах'}</td><td>${esc(x.a.name)}<div class="hint">${esc(who(x.a))}</div></td><td>${pill(x.st)}</td></tr>`}).join('')||'<tr><td class="muted">Ойрын 14 хоногт ажил алга.</td></tr>'}</tbody></table></div></section>
+  </div></div>`;
+}
+function sCurve(){
+  const xs=S.acts;if(!xs.length)return '';
+  const s0=Math.min(...xs.map(a=>toN(a.bs))),s1=Math.max(...xs.map(a=>toN(a.be))),sd=toN(S.statusDate);
+  const W=640,H=230,L=36,R=12,Tp=12,B=26,w=W-L-R,h=H-Tp-B;
+  const X=d=>L+(d-s0)/(s1-s0)*w,Y=p=>Tp+h-p/100*h;
+  let pp=[],ap=[];
+  for(let d=s0;d<=s1+6;d+=7){const dd=Math.min(d,s1);const t=totals(null,dd);pp.push([X(dd),Y(t.plan)]);if(dd<=sd)ap.push([X(dd),Y(t.act)])}
+  if(sd>=s0&&sd<=s1){const t=totals(null,sd);ap.push([X(sd),Y(t.act)])}
+  const path=p=>p.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');
+  let g='';[0,25,50,75,100].forEach(p=>{g+=`<line x1="${L}" x2="${W-R}" y1="${Y(p)}" y2="${Y(p)}" stroke="var(--line)"/><text x="${L-6}" y="${Y(p)+3.5}" text-anchor="end">${p}%</text>`});
+  const d0=new Date(s0*DAY);let mo=Date.UTC(d0.getUTCFullYear(),d0.getUTCMonth()+1,1)/DAY,k=0;
+  while(mo<=s1){const dt=new Date(mo*DAY);if(k++%2===0)g+=`<text x="${X(mo)}" y="${H-8}" text-anchor="middle">${dt.getUTCFullYear()%100}.${String(dt.getUTCMonth()+1).padStart(2,'0')}</text>`;mo=Date.UTC(dt.getUTCFullYear(),dt.getUTCMonth()+1,1)/DAY}
+  const last=ap[ap.length-1],tp=totals(null,sd);
+  const sdx=sd>=s0&&sd<=s1?`<line x1="${X(sd)}" x2="${X(sd)}" y1="${Tp}" y2="${Tp+h}" stroke="var(--accent)" stroke-dasharray="3 3"/>`:'';
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="S-муруй: төлөвлөсөн ${r1(tp.plan)}%, бодит ${r1(tp.act)}%">${g}${sdx}
+  <path d="${path(pp)}" fill="none" stroke="var(--plan)" stroke-width="2"/>
+  ${ap.length?`<path d="${path(ap)} L${last[0]} ${Y(0)} L${ap[0][0]} ${Y(0)} Z" fill="var(--accent)" opacity=".12"/><path d="${path(ap)}" fill="none" stroke="var(--accent)" stroke-width="2.5"/><circle cx="${last[0]}" cy="${last[1]}" r="4" fill="var(--accent)"/><text x="${last[0]+7}" y="${last[1]+4}" style="fill:var(--accent)">${r1(tp.act)}%</text>`:''}</svg>`;
+}
+
+/* ---------- gantt ---------- */
+function viewGantt(v,M){
+  const xs=Object.values(M),sd=toN(S.statusDate);
+  const ppd={day:22,week:7,month:2.6}[zoom];
+  const s0=Math.min(...xs.map(x=>Math.min(x.bS,x.fS)))-3,s1=Math.max(...xs.map(x=>Math.max(x.bE,x.fF)))+8;
+  const W=Math.ceil((s1-s0+1)*ppd),X=d=>(d-s0)*ppd;
+  let mh='';const d0=new Date(s0*DAY);let mo=Date.UTC(d0.getUTCFullYear(),d0.getUTCMonth(),1)/DAY;
+  const months=[];while(mo<=s1){const dt=new Date(mo*DAY);months.push([Math.max(mo,s0),dt]);mo=Date.UTC(dt.getUTCFullYear(),dt.getUTCMonth()+1,1)/DAY}
+  const lines=months.map(([m])=>`<div class="g-month" style="left:${X(m)}px"></div>`).join('');
+  mh=months.map(([m,dt])=>`<div class="g-month" style="left:${X(m)}px"><span>${dt.getUTCFullYear()} · ${dt.getUTCMonth()+1}-р сар</span></div>`).join('');
+  if(zoom!=='month'){const step=zoom==='day'?1:7;for(let d=s0;d<=s1;d++){const dt=new Date(d*DAY);if(zoom==='day'||dt.getUTCDay()===1)mh+=`<span class="g-day" style="left:${X(d)+ppd/2}px">${dt.getUTCDate()}</span>`}}
+  const rows=xs.map(x=>{
+    const a=x.a,c=x.st;
+    const oS=toN(a.bs),oE=toN(a.be);
+    let bars=`<div class="b-base" title="Анхны төлөвлөгөө ${fmt(oS)} – ${fmt(oE)}" style="left:${X(oS)}px;width:${(oE-oS+1)*ppd}px"></div>`;
+    if(changed(a)){const cS=toN(a.cs),cE=toN(a.ce);bars+=`<div class="b-cur" title="Одоогийн хувилбар ${fmt(cS)} – ${fmt(cE)}" style="left:${X(cS)}px;width:${(cE-cS+1)*ppd}px"></div>`}
+    if(x.af!=null)bars+=`<div class="b-act c-done" title="Бодит ${fmt(x.as??x.af)} – ${fmt(x.af)}" style="left:${X(x.as??x.af)}px;width:${(x.af-(x.as??x.af)+1)*ppd}px"></div>`;
+    else if(x.as!=null){bars+=`<div class="b-act c-${c}" style="left:${X(x.as)}px;width:${(sd-x.as+1)*ppd}px"></div><div class="b-fc c-${c}" title="Прогноз ${fmt(x.fF)}" style="left:${X(sd+1)}px;width:${Math.max(1,x.fF-sd)*ppd}px"></div>`}
+    else bars+=`<div class="b-fc c-${c}" title="Прогноз ${fmt(x.fS)} – ${fmt(x.fF)}" style="left:${X(x.fS)}px;width:${(x.fF-x.fS+1)*ppd}px"></div>`;
+    return `<div class="g-row" data-open="${a.id}"><div class="g-left"><span class="mono">${esc(a.id)}</span><span class="nm">${esc(a.name)}<small>${esc(who(a))}</small></span><span class="num hide-sm">${Math.round(x.planned)}%</span><span class="num">${Math.round(x.actual)}%</span><span class="num hide-sm ${x.v<0?'neg':'pos'}">${sign(x.v)}</span><span class="num hide-sm ${x.fv>0?'neg':''}">${x.af!=null?'✓':(x.fv>0?'+':'')+x.fv}</span></div>
+      <div class="g-track" style="width:${W}px">${lines}<i class="sdl" style="left:${X(sd)+ppd/2}px"></i>${bars}</div></div>`;
+  }).join('');
+  v.innerHTML=`<div class="gtools"><div class="seg" role="group" aria-label="Масштаб">${[['day','Өдөр'],['week','7 хоног'],['month','Сар']].map(([k,l])=>`<button data-zoom="${k}" aria-pressed="${zoom===k}">${l}</button>`).join('')}</div>
+    <div class="legend"><span><i class="sw" style="background:var(--base)"></i>Анхны төлөвлөгөө (түгжигдсэн)</span><span><i class="sw" style="background:var(--accent);height:3px"></i>Батлагдсан өөрчлөлт</span><span><i class="sw" style="background:var(--ok)"></i>Бодит</span><span><i class="sw" style="border:1.5px dashed var(--bad)"></i>Прогноз</span><span><i class="sw" style="background:var(--accent);width:3px"></i>Тайлангийн өдөр</span></div></div>
+    <div class="gantt"><div class="g-row hd"><div class="g-left"><span class="eyebrow">Код</span><span class="eyebrow">Ажил</span><span class="eyebrow num hide-sm">Төл.</span><span class="eyebrow num">Бодит</span><span class="eyebrow num hide-sm">Зөрүү</span><span class="eyebrow num hide-sm">Хон.</span></div><div class="g-track" style="width:${W}px">${mh}<i class="sdl lbl" data-l="${fmt(sd)}" style="left:${X(sd)+ppd/2}px"></i></div></div>${rows}</div>
+    <p class="hint">Мөр дээр дарж ажлын дэлгэрэнгүй, тайлангийн түүхийг харна. "Хон." = төлөвлөсөн дуусах огнооноос прогноз хэдэн хоногоор зөрөх.</p>`;
+  v.querySelectorAll('[data-zoom]').forEach(b=>b.onclick=()=>{zoom=b.dataset.zoom;render()});
+  const g=v.querySelector('.gantt');g.scrollLeft=Math.max(0,X(sd)-260);
+}
+
+/* ---------- calendar ---------- */
+function viewCal(v,M){
+  const sd=toN(S.statusDate);if(calAnchor==null)calAnchor=sd;
+  const xs=Object.values(M);
+  const dt=new Date(calAnchor*DAY);let start,end,label;
+  if(calMode==='month'){const f=Date.UTC(dt.getUTCFullYear(),dt.getUTCMonth(),1)/DAY,l=Date.UTC(dt.getUTCFullYear(),dt.getUTCMonth()+1,0)/DAY;start=f-((new Date(f*DAY).getUTCDay()+6)%7);end=l+(6-(new Date(l*DAY).getUTCDay()+6)%7);label=`${dt.getUTCFullYear()} оны ${dt.getUTCMonth()+1}-р сар`}
+  else{start=calAnchor-((dt.getUTCDay()+6)%7);end=start+6;label=`${fmt(start)} – ${fmt(end)}`}
+  const lim=calMode==='month'?3:99;
+  let cells='';
+  for(let d=start;d<=end;d++){
+    const inM=calMode==='week'||new Date(d*DAY).getUTCMonth()===dt.getUTCMonth();
+    const on=xs.filter(x=>x.bS<=d&&d<=x.bE);
+    const chips=on.slice(0,lim).map(x=>`<div class="chip ${x.st}" title="${esc(x.a.name)} · ${ST[x.st]}">${d===x.bS?'▶ ':d===x.bE?'■ ':''}<b>${esc(x.a.id)}</b> ${esc(x.a.name)}</div>`).join('');
+    cells+=`<button class="cell ${inM?'':'out'} ${d===sd?'today':''} ${d===calSel?'sel':''}" data-day="${d}"><span class="d">${new Date(d*DAY).getUTCDate()}</span>${chips}${on.length>lim?`<span class="more">+${on.length-lim} ажил</span>`:''}</button>`;
+  }
+  const sel=calSel??sd;
+  const dayList=xs.filter(x=>x.bS<=sel&&sel<=x.bE||x.fS<=sel&&sel<=x.fF);
+  v.innerHTML=`<div class="stack"><div class="gtools" style="justify-content:space-between">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn sm" id="cPrev" aria-label="Өмнөх">‹</button><button class="btn sm" id="cToday">Тайлангийн өдөр</button><button class="btn sm" id="cNext" aria-label="Дараах">›</button><h2 style="margin-left:6px">${label}</h2></div>
+    <div class="seg" role="group" aria-label="Харагдац"><button data-cm="month" aria-pressed="${calMode==='month'}">Сар</button><button data-cm="week" aria-pressed="${calMode==='week'}">7 хоног</button></div></div>
+    <div class="legend"><span>▶ эхлэх өдөр</span><span>■ дуусах өдөр</span>${['late','risk','ok','done','future','nodata'].map(s=>`<span><span class="chip ${s}" style="padding:0 6px">${ST[s]}</span></span>`).join('')}</div>
+    <div class="cal-wrap"><div class="cal-inner"><div class="cal ${calMode==='week'?'week':''}">${MON.map(m=>`<div class="dh">${m}</div>`).join('')}${cells}</div></div></div>
+    <section class="panel"><div class="head"><h2>${fmtL(sel)}: хийгдэх ажил</h2><span class="hint">төлөвлөгөө эсвэл прогнозоор тухайн өдөр хамаарах</span></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Ажил</th><th>Гүйцэтгэгч</th><th class="r">Тухайн өдрийн төлөвлөсөн явц</th><th>Төлөв</th><th>Тэмдэглэл</th></tr></thead><tbody>
+    ${dayList.map(x=>{const inB=x.bS<=sel&&sel<=x.bE,inF=x.fS<=sel&&sel<=x.fF;return `<tr class="click" data-open="${x.a.id}"><td><span class="mono">${esc(x.a.id)}</span> ${esc(x.a.name)}</td><td>${esc(who(x.a))}</td><td class="r num">${Math.round(plannedAt(x.a,sel))}%</td><td>${pill(x.st)}</td><td class="hint">${inB&&!inF?'Төлөвлөгөөнд байгаа ч прогнозоор хойшилсон':!inB&&inF?'Төлөвлөгөөнд байхгүй, хоцрогдлоор сунасан':sel===x.bS?'Эхлэх ёстой':sel===x.bE?'Дуусах ёстой':''}</td></tr>`}).join('')||'<tr><td colspan="5" class="muted">Энэ өдөр ажил алга.</td></tr>'}
+    </tbody></table></div></section></div>`;
+  v.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{calSel=+b.dataset.day;render()});
+  v.querySelectorAll('[data-cm]').forEach(b=>b.onclick=()=>{calMode=b.dataset.cm;render()});
+  const shift=k=>{if(calMode==='week')calAnchor+=7*k;else{const d=new Date(calAnchor*DAY);calAnchor=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+k,1)/DAY}render()};
+  $('cPrev').onclick=()=>shift(-1);$('cNext').onclick=()=>shift(1);$('cToday').onclick=()=>{calAnchor=sd;calSel=sd;render()};
+}
+
+/* ---------- progress entry & review ---------- */
+function lastApproved(aid){return S.reports.filter(r=>r.a===aid&&r.status==='approved').sort((a,b)=>a.date<b.date?1:-1)[0]}
+function reportCard(r,mode){
+  const a=actById(r.a);if(!a)return '';
+  const prev=S.reports.filter(x=>x.a===r.a&&x.status==='approved'&&x.date<r.date&&x.id!==r.id).sort((x,y)=>x.date<y.date?1:-1)[0];
+  const pp=prev?prev.qty/a.qty*100:0,np=r.qty/a.qty*100,pl=plannedAt(a,toN(r.date));
+  return `<article class="rv">
+    <div class="t"><div><h3>${esc(a.name)} <span class="mono muted">${esc(a.id)}</span></h3><div class="hint">${esc(who(a))} · тайлангийн огноо <span class="num">${fmt(toN(r.date))}</span></div></div>${rpill(r.status)}</div>
+    <div class="delta"><div><span class="muted">Өмнөх батлагдсан</span><b>${r1(pp)}%</b></div><div><span class="muted">Мэдээлсэн</span><b>${r1(np)}%</b></div><div><span class="muted">Нэмэгдэл</span><b class="${np-pp<0?'neg':''}">${np-pp>=0?'+':''}${r1(np-pp)}</b></div><div><span class="muted">Хэмжээ (нийлбэр)</span><b>${r.qty} / ${a.qty} ${esc(a.unit)}</b></div><div><span class="muted">Тухайн өдрийн төлөвлөгөө</span><b>${Math.round(pl)}%</b></div></div>
+    ${r.startDate&&!a.as?`<div class="hint">Ажил эхэлсэн огноо: <span class="num">${fmt(toN(r.startDate))}</span></div>`:''}
+    ${r.reason?`<div><span class="pill st-risk">${esc(r.reason)}</span></div>`:''}
+    ${r.note?`<div class="note">${esc(r.note)}</div>`:''}
+    ${r.photos&&r.photos.length?`<div class="photos">${r.photos.map(p=>`<img src="${p}" alt="Нотлох зураг">`).join('')}</div>`:`<div class="hint">Нотлох зураг хавсаргаагүй</div>`}
+    ${r.comment?`<div class="note"><b>${esc(r.reviewer||'Хяналтын инженер')}:</b> ${esc(r.comment)}</div>`:''}
+    ${mode==='review'?`<label class="hint" for="cm-${r.id}">Хяналтын тайлбар</label><textarea class="inp" id="cm-${r.id}" placeholder="Буцаах эсвэл тайлбар шаардах бол шалтгаанаа бичнэ үү"></textarea>
+      <div class="actions"><button class="btn ok" data-dec="approved" data-r="${r.id}">Батлах</button><button class="btn bad" data-dec="returned" data-r="${r.id}">Буцаах</button><button class="btn" data-dec="info" data-r="${r.id}">Тайлбар шаардах</button></div>`:''}
+    ${mode==='mine'&&(r.status==='returned'||r.status==='info')?`<div class="actions"><button class="btn" data-fix="${r.id}">Засаж дахин илгээх</button></div>`:''}
+  </article>`;
+}
+function viewRev(v,M){
+  if(S.role==='engineer'){
+    const pend=S.reports.filter(r=>r.status==='pending').sort((a,b)=>a.date<b.date?-1:1);
+    const done=S.reports.filter(r=>r.status!=='pending').sort((a,b)=>a.date<b.date?1:-1).slice(0,8);
+    v.innerHTML=`<div class="stack">${excelPanel()}<div class="head"><h2>Хяналт хүлээж буй тайлан (${pend.length})</h2><span class="hint">Батлагдсан тайлан л бодит гүйцэтгэлийн тооцоонд орно</span></div>
+      <div class="grid2">${pend.map(r=>reportCard(r,'review')).join('')||'<p class="muted">Хүлээгдэж буй тайлан алга.</p>'}</div>
+      <div class="head"><h2>Сүүлд шийдвэрлэсэн</h2></div><div class="grid2">${done.map(r=>reportCard(r,'')).join('')}</div></div>`;
+    v.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>decide(b.dataset.r,b.dataset.dec));
+    wireExcel();
+  }else if(S.role==='contractor'){
+    const mine=S.acts.filter(a=>a.c===S.me);
+    const fix=editFrom?S.reports.find(r=>r.id===editFrom):null;
+    const myR=S.reports.filter(r=>mine.some(a=>a.id===r.a)).sort((a,b)=>a.date<b.date?1:-1);
+    v.innerHTML=`<div class="stack"><section class="panel"><div class="head"><h2>Гүйцэтгэлийн тайлан илгээх</h2><span class="hint">${esc(cName(S.me))} · зөвхөн өөрт хамаарах ажил</span></div>
+      ${mine.length?`<form class="form" id="pf">
+        <div class="field"><label for="pfA">Ажил</label><select class="inp" id="pfA">${mine.filter(a=>!a.af).map(a=>`<option value="${a.id}" ${fix&&fix.a===a.id?'selected':''}>${esc(a.id)} · ${esc(a.name)}</option>`).join('')}</select></div>
+        <div class="field"><label for="pfD">Тайлангийн огноо</label><input class="inp num" type="date" id="pfD" value="${S.statusDate}"></div>
+        <div class="field"><label for="pfQ" id="pfQL">Гүйцэтгэсэн нийт хэмжээ</label><input class="inp num" type="number" min="0" step="any" id="pfQ" value="${fix?fix.qty:''}"><span class="hint" id="pfQH"></span></div>
+        <div class="field" id="pfSW"><label for="pfS">Ажил эхэлсэн огноо</label><input class="inp num" type="date" id="pfS"></div>
+        <div class="field"><label for="pfR">Саатлын шалтгаан</label><select class="inp" id="pfR"><option value="">Саатал байхгүй</option>${REASONS.map(x=>`<option ${fix&&fix.reason===x?'selected':''}>${x}</option>`).join('')}</select></div>
+        <div class="field"><label for="pfP">Нотлох зураг</label><input class="inp" type="file" id="pfP" accept="image/*" multiple></div>
+        <div class="field full"><label for="pfN">Тайлбар</label><textarea class="inp" id="pfN" placeholder="Хийгдсэн ажил, байршил, тэнхлэг, хэмжилтийн акт">${fix?esc(fix.note):''}</textarea></div>
+        ${fix?`<div class="full note"><b>Буцаасан шалтгаан:</b> ${esc(fix.comment)}</div>`:''}
+        <div class="full actions"><button class="btn pri" type="submit">Хяналтад илгээх</button><span class="err" id="pfE"></span></div>
+      </form>`:'<p class="muted">Энэ гүйцэтгэгчид оноосон ажил алга.</p>'}</section>
+      ${mine.length?excelPanel():''}
+      <div class="head"><h2>Миний илгээсэн тайлан</h2></div><div class="grid2">${myR.map(r=>reportCard(r,'mine')).join('')||'<p class="muted">Тайлан алга.</p>'}</div></div>`;
+    if(mine.length){wireForm(fix);wireExcel()}
+    v.querySelectorAll('[data-fix]').forEach(b=>b.onclick=()=>{editFrom=b.dataset.fix;render();scrollTo({top:0})});
+  }else{
+    v.innerHTML=`<div class="stack"><p class="muted">Захиалагч тайланг харах эрхтэй, засах болон батлах эрхгүй.</p><div class="grid2">${S.reports.slice().sort((a,b)=>a.date<b.date?1:-1).map(r=>reportCard(r,'')).join('')}</div></div>`;
+  }
+}
+function wireForm(fix){
+  const sel=$('pfA'),q=$('pfQ');
+  const upd=()=>{const a=actById(sel.value);if(!a)return;const la=lastApproved(a.id);$('pfQL').textContent=`Гүйцэтгэсэн нийт хэмжээ (${a.unit})`;
+    $('pfQH').textContent=`Нийт ${a.qty} ${a.unit} · өмнө батлагдсан ${la?la.qty:0}`+(q.value?` · ${r1(q.value/a.qty*100)}%`:'');$('pfSW').hidden=!!a.as};
+  sel.onchange=upd;q.oninput=upd;upd();
+  $('pf').onsubmit=async e=>{
+    e.preventDefault();const a=actById(sel.value),qty=parseFloat(q.value),la=lastApproved(a.id),E=$('pfE');
+    if(!(qty>=0)){E.textContent='Гүйцэтгэсэн хэмжээг оруулна уу.';return}
+    if(qty>a.qty){E.textContent=`Нийт хэмжээ ${a.qty} ${a.unit}-ээс их байж болохгүй.`;return}
+    if(la&&qty<la.qty){E.textContent=`Өмнө батлагдсан ${la.qty} ${a.unit}-ээс бага байна. Нийлбэр хэмжээг оруулна уу.`;return}
+    if(!a.as&&!$('pfS').value){E.textContent='Ажил эхэлсэн огноог оруулна уу.';return}
+    const photos=await readPhotos($('pfP').files);
+    const r={id:'r'+Date.now(),a:a.id,date:$('pfD').value,qty,status:'pending',note:$('pfN').value.trim(),reason:$('pfR').value,comment:'',reviewer:'',photos,startDate:a.as?'':$('pfS').value};
+    S.reports.push(r);
+    if(fix){fix.superseded=r.id}
+    log(cName(S.me),`${a.id} тайлан илгээв: ${r1(qty/a.qty*100)}%`,fix?'Буцаасан тайлангийн засвар':'');
+    editFrom=null;save();render();toast('Тайлан хяналтад илгээгдлээ');
+  };
+}
+function readPhotos(files){return Promise.all([...files].slice(0,4).map(f=>new Promise(res=>{const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const s=Math.min(1,640/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.7))};im.onerror=()=>res(null);im.src=fr.result};fr.readAsDataURL(f)}))).then(a=>a.filter(Boolean))}
+function decide(rid,dec){
+  const r=S.reports.find(x=>x.id===rid),a=actById(r.a),c=$('cm-'+rid).value.trim();
+  if(dec!=='approved'&&!c){toast('Буцаах болон тайлбар шаардахад шалтгаан бичнэ үү');$('cm-'+rid).focus();return}
+  r.status=dec;r.comment=c;r.reviewer='Хяналтын инженер';r.decided=nowStamp();
+  if(dec==='approved'){if(!a.as)a.as=r.startDate||r.date;if(r.qty>=a.qty)a.af=r.date}
+  log('Хяналтын инженер',`${a.id} тайлан (${r1(r.qty/a.qty*100)}%) — ${RS[dec]}`,c);
+  save();render();toast(dec==='approved'?'Батлагдлаа. График шинэчлэгдсэн':'Гүйцэтгэгч рүү буцаалаа');
+}
+
+/* ---------- Excel progress report upload ---------- */
+// Template "Тайлан" sheet: labels "Гүйцэтгэгч" / "Тайлангийн огноо" above a table whose header row holds
+// Код … Гүйцэтгэл % … Бодит эхэлсэн огноо … Саатлын шалтгаан … Тайлбар. Rows become pending reports for review.
+let xl=null;
+function loadXLSX(){
+  if(window.XLSX)return Promise.resolve();
+  return new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=res;s.onerror=()=>rej(new Error('Excel уншигч ачаалагдсангүй. Интернэт холболтоо шалгана уу.'));document.head.appendChild(s)});
+}
+function xlDate(v){
+  if(v instanceof Date&&!isNaN(v))return toS(Math.round(Date.UTC(v.getFullYear(),v.getMonth(),v.getDate())/DAY));
+  if(typeof v==='number'&&v>20000)return toS(Math.round(v)-25569);
+  const m=String(v||'').trim().match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
+  return m?`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`:null;
+}
+function parseSheet(wb){
+  const ws=wb.Sheets['Тайлан']||wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+  const label=t=>{for(const r of rows){const i=r.findIndex(c=>String(c).trim().startsWith(t));if(i>=0){const v=r.slice(i+1).find(c=>String(c).trim()!==''&&!String(c).trim().startsWith('←'));return v??''}}return ''};
+  const hi=rows.findIndex(r=>r.some(c=>String(c).trim()==='Код')&&r.some(c=>/Гүйцэтгэл/.test(String(c))));
+  if(hi<0)return {err:'"Код" болон "Гүйцэтгэл %" багана бүхий толгой мөр олдсонгүй. Системийн загварыг ашиглана уу.'};
+  const H=rows[hi].map(c=>String(c).trim()),col=re=>H.findIndex(h=>re.test(h));
+  const ci={code:H.indexOf('Код'),pct:col(/^Гүйцэтгэл/),start:col(/Бодит эхэлсэн/),reason:col(/Саатлын/),note:col(/^Тайлбар/)};
+  const items=[];
+  for(let i=hi+1;i<rows.length;i++){const r=rows[i],code=String(r[ci.code]??'').trim();if(!code)continue;
+    items.push({row:i+1,code,pct:r[ci.pct],start:ci.start>=0?r[ci.start]:'',reason:ci.reason>=0?String(r[ci.reason]).trim():'',note:ci.note>=0?String(r[ci.note]).trim():''})}
+  return {cname:String(label('Гүйцэтгэгч')).trim(),date:xlDate(label('Тайлангийн огноо')),items};
+}
+function checkRows(p){
+  return p.items.map(it=>{
+    const o={...it,st:'ok',msg:[]},a=actById(it.code);o.a=a;
+    if(!a){o.st='err';o.msg.push('Ийм код графикт алга');return o}
+    if(S.role==='contractor'&&a.c!==S.me){o.st='err';o.msg.push('Танд оноогдоогүй ажил');return o}
+    if(S.role!=='contractor'&&p.cname&&cName(a.c)!==p.cname)o.msg.push(`Энэ ажил ${cName(a.c)}-д оноогдсон`);
+    if(it.pct===''||it.pct==null){o.st='skip';o.msg.push('Гүйцэтгэл бөглөөгүй');return o}
+    let pc=typeof it.pct==='number'?it.pct:parseFloat(String(it.pct).replace('%','').replace(',','.'));
+    if(isNaN(pc)){o.st='err';o.msg.push('Гүйцэтгэл тоо биш');return o}
+    if(typeof it.pct==='number'&&pc>0&&pc<1){pc=pc*100;o.msg.push('Бутархайг хувь руу хөрвүүлэв')}
+    if(pc<0||pc>100){o.st='err';o.msg.push('0–100 хооронд байх ёстой');return o}
+    o.p=r1(pc);
+    const la=lastApproved(a.id),lp=la?la.qty/a.qty*100:0;o.lp=lp;
+    if(o.p<r1(lp)){o.st='err';o.msg.push(`Өмнө батлагдсан ${r1(lp)}%-аас бага байна`);return o}
+    if(o.p===r1(lp)&&la){o.st='skip';o.msg.push('Өмнөх тайлантай ижил');return o}
+    o.sd=xlDate(it.start);
+    if(!a.as&&o.p>0&&!o.sd){o.st='err';o.msg.push('Бодит эхэлсэн огноо шаардлагатай');return o}
+    o.reason=it.reason;o.note=it.note;
+    if(it.reason&&!REASONS.includes(it.reason)){o.msg.push(`Шалтгаан "${it.reason}" жагсаалтад алга, "Бусад" гэж авав`);o.reason='Бусад';o.note=`${it.reason}. ${it.note}`.trim()}
+    if(S.reports.some(r=>r.a===a.id&&r.status==='pending')){o.msg.push('Хяналт хүлээж буй тайлан байна')}
+    if(o.msg.length&&o.st==='ok')o.st='warn';
+    return o;
+  });
+}
+function excelPanel(){
+  const cnt=xl&&xl.rows?xl.rows.filter(r=>r.st==='ok'||r.st==='warn').length:0;
+  const tag={ok:['st-approved','Илгээнэ'],warn:['st-pending','Анхааруулгатай'],err:['st-returned','Алдаа'],skip:['st-future','Алгасна']};
+  return `<section class="panel"><div class="head"><h2>Excel тайлан оруулах</h2><span class="hint">Системийн загвараар бөглөсөн .xlsx файл</span></div>
+    <div class="actions" style="align-items:center"><label class="btn" for="xlF">Файл сонгох</label><input type="file" id="xlF" accept=".xlsx,.xls" hidden><span class="hint">${xl?esc(xl.file):'Гүйцэтгэгч зөвхөн "Гүйцэтгэл %", "Бодит эхэлсэн огноо", "Саатлын шалтгаан", "Тайлбар" баганыг бөглөнө.'}</span></div>
+    ${xl&&xl.err?`<p class="err">${esc(xl.err)}</p>`:''}
+    ${xl&&xl.rows?`<div class="delta" style="margin-top:10px"><div><span class="muted">Гүйцэтгэгч</span><b style="font-size:13px">${esc(xl.cname||'—')}</b></div><div><span class="muted">Тайлангийн огноо</span><b>${xl.date?fmt(toN(xl.date)):'—'}</b></div><div><span class="muted">Мөр</span><b>${xl.rows.length}</b></div><div><span class="muted">Илгээх</span><b>${cnt}</b></div></div>
+      ${xl.warn?`<p class="err">${esc(xl.warn)}</p>`:''}
+      <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>Мөр</th><th>Код</th><th>Ажил</th><th class="r">Өмнөх</th><th class="r">Шинэ</th><th>Төлөв</th><th>Тайлбар</th></tr></thead><tbody>
+      ${xl.rows.map(r=>`<tr><td class="num">${r.row}</td><td class="mono">${esc(r.code)}</td><td>${r.a?esc(r.a.name):'—'}</td><td class="r num">${r.lp!=null?r1(r.lp)+'%':''}</td><td class="r num">${r.p!=null?r.p+'%':''}</td><td><span class="pill ${tag[r.st][0]}">${tag[r.st][1]}</span></td><td class="hint">${esc(r.msg.join('; '))}</td></tr>`).join('')}
+      </tbody></table></div>
+      <div class="actions" style="margin-top:10px"><button class="btn pri" id="xlGo" ${cnt&&xl.date?'':'disabled'}>${cnt} тайлан хяналтад илгээх</button><button class="btn" id="xlX">Цуцлах</button></div>`:''}
+  </section>`;
+}
+function wireExcel(){
+  const f=$('xlF');if(!f)return;
+  f.onchange=async()=>{
+    const file=f.files[0];if(!file)return;
+    try{
+      await loadXLSX();
+      const wb=XLSX.read(await file.arrayBuffer(),{cellDates:true});
+      const p=parseSheet(wb);
+      if(p.err){xl={file:file.name,err:p.err}}
+      else{
+        xl={file:file.name,cname:p.cname,date:p.date,rows:checkRows(p)};
+        if(!p.date)xl.warn='"Тайлангийн огноо" бөглөөгүй эсвэл буруу байна (жишээ: 2026-10-22).';
+        else if(p.date>S.statusDate)xl.warn='Тайлангийн огноо ирээдүйд байна.';
+        if(S.role==='contractor'&&p.cname&&p.cname!==cName(S.me))xl.warn=(xl.warn?xl.warn+' ':'')+`Файл дээрх гүйцэтгэгч "${p.cname}" таны байгууллагатай таарахгүй байна.`;
+      }
+    }catch(e){xl={file:file.name,err:e.message||'Файлыг уншиж чадсангүй.'}}
+    render();
+  };
+  const x=$('xlX');if(x)x.onclick=()=>{xl=null;render()};
+  const g=$('xlGo');if(g)g.onclick=()=>{
+    const ok=xl.rows.filter(r=>r.st==='ok'||r.st==='warn');
+    for(const r of ok)S.reports.push({id:'r'+Date.now()+r.row,a:r.a.id,date:xl.date,qty:r1(r.p*r.a.qty/100),status:'pending',note:[r.note,`Excel: ${xl.file}, ${r.row}-р мөр`].filter(Boolean).join(' · '),reason:r.reason||'',comment:'',reviewer:'',photos:[],startDate:r.a.as?'':(r.sd||'')});
+    log(userName(),`Excel-ээр ${ok.length} тайлан илгээв`,xl.file);
+    xl=null;save();render();toast(`${ok.length} тайлан хяналтад илгээгдлээ`);
+  };
+}
+
+/* ---------- schedule change requests ---------- */
+// Approval chain follows the signatures on the approved master schedule
+const FLOW=[['submitted','engineer','Хяналтын инженер','Дэмжиж шилжүүлэх'],['reviewed','planner','Төлөвлөлтийн инженер','Боловсруулж шилжүүлэх'],['prepared','pm','Төслийн удирдагч','Хянаж шилжүүлэх'],['checked','director','Гүйцэтгэх захирал','Батлах']];
+const CRS={submitted:'Хяналтын инженерийн санал хүлээж буй',reviewed:'Төлөвлөлтийн инженер боловсруулж буй',prepared:'Төслийн удирдагчийн хяналт хүлээж буй',checked:'Захирлын батламж хүлээж буй',approved:'Батлагдсан',rejected:'Татгалзсан'};
+const CR_REASONS=['Захиалагчийн шийдвэр','Зураг төсөл өөрчлөгдсөн',...REASONS.filter(r=>r!=='Зураг төсөл өөрчлөгдсөн')];
+const stepIx=c=>FLOW.findIndex(f=>f[0]===c.status);
+function myTurn(c){const i=stepIx(c);return i>=0&&FLOW[i][1]===S.role}
+const dd=(a,b)=>{const d=toN(a)-toN(b);return (d>0?'+':'')+d+' хоног'};
+function crCard(c){
+  const a=actById(c.a);if(!a)return '';
+  const i=stepIx(c),fin=c.status==='approved'||c.status==='rejected';
+  const steps=['Хүсэлт',...FLOW.map(f=>f[2])].map((l,k)=>{
+    let cls='';if(c.status==='approved'||k<=c.from||(i>=0&&k<=i)||(c.status==='rejected'&&k<=c.rejAt))cls='done';
+    if(i>=0&&k===i+1)cls='now';
+    if(c.status==='rejected'&&k===c.rejAt+1)cls='no';
+    return `<span class="${cls}">${l}</span>`}).join('');
+  const turn=myTurn(c),plan=turn&&S.role==='planner';
+  return `<article class="rv">
+    <div class="t"><div><h3>${esc(a.name)} <span class="mono muted">${esc(a.id)}</span></h3><div class="hint">${esc(who(a))} · ${esc(c.by)} · <span class="num">${fmt(toN(c.date))}</span></div></div><span class="pill ${c.status==='approved'?'st-approved':c.status==='rejected'?'st-returned':'st-pending'}">${CRS[c.status]}</span></div>
+    <div class="delta"><div><span class="muted">Анхны төлөвлөгөө</span><b>${fmt(toN(a.bs))} – ${fmt(toN(a.be))}</b></div><div><span class="muted">${fin?'Хүсэлтийн үеийн':'Одоогийн'} хувилбар</span><b>${fmt(toN(c.os))} – ${fmt(toN(c.oe))}</b></div><div><span class="muted">Санал болгосон</span><b>${fmt(toN(c.ns))} – ${fmt(toN(c.ne))}</b></div><div><span class="muted">Дуусах огноо</span><b class="${toN(c.ne)>toN(c.oe)?'neg':''}">${dd(c.ne,c.oe)}</b></div><div><span class="muted">Анхныхаас</span><b class="${toN(c.ne)>toN(a.be)?'neg':''}">${dd(c.ne,a.be)}</b></div></div>
+    <div><span class="pill st-risk">${esc(c.reason)}</span></div>
+    ${c.note?`<div class="note">${esc(c.note)}</div>`:''}
+    <div class="steps">${steps}</div>
+    <div class="hist">${c.hist.map(h=>`<div><b>${esc(h.who)}</b> · ${esc(h.dec)} <span class="hint num">${esc(h.t.replace('T',' '))}</span>${h.comment?`<div class="muted">${esc(h.comment)}</div>`:''}</div>`).join('')}</div>
+    ${turn?`${plan?`<div class="form"><div class="field"><label for="ns-${c.id}">Эхлэх (засварлах боломжтой)</label><input class="inp num" type="date" id="ns-${c.id}" value="${c.ns}"></div><div class="field"><label for="ne-${c.id}">Дуусах</label><input class="inp num" type="date" id="ne-${c.id}" value="${c.ne}"></div></div>`:''}
+      <label class="hint" for="cc-${c.id}">Тайлбар</label><textarea class="inp" id="cc-${c.id}" placeholder="Татгалзах бол шалтгаанаа заавал бичнэ"></textarea>
+      <div class="actions"><button class="btn ${S.role==='director'?'ok':'pri'}" data-cr="${c.id}" data-ok="1">${FLOW[i][3]}</button><button class="btn bad" data-cr="${c.id}" data-ok="0">Татгалзах</button></div>`:''}
+  </article>`;
+}
+function viewCR(v){
+  const canReq=['contractor','engineer','planner'].includes(S.role);
+  const mineA=S.role==='contractor'?S.acts.filter(a=>a.c===S.me):S.acts.filter(a=>a.w>0||a.c==='g1');
+  const vis=S.role==='contractor'?S.crs.filter(c=>mineA.some(a=>a.id===c.a)):S.crs;
+  const open=vis.filter(c=>c.status!=='approved'&&c.status!=='rejected').sort((a,b)=>myTurn(b)-myTurn(a));
+  const done=vis.filter(c=>c.status==='approved'||c.status==='rejected').reverse();
+  v.innerHTML=`<div class="stack">
+    <section class="panel"><div class="head"><h2>Хугацаа өөрчлөх журам</h2><span class="lock">🔒 Анхны төлөвлөгөө (v1) хэзээ ч өөрчлөгдөхгүй</span></div>
+      <div class="flow"><b>Гүйцэтгэгч / инженер хүсэлт гаргана</b>→<b>Хяналтын инженер санал өгнө</b>→<b>Төлөвлөлтийн инженер боловсруулна</b>→<b>Төслийн удирдагч хянана</b>→<b>Гүйцэтгэх захирал батална</b></div>
+      <p class="hint">Батлагдсан хүсэлт бүр төлөвлөгөөний шинэ хувилбар (v2, v3…) үүсгэнэ. Аль ч шатанд татгалзаж болно. Дараалсан ажлын хугацааг автоматаар шилжүүлэхгүй, шаардлагатай бол тусад нь хүсэлт гаргана.</p></section>
+    ${canReq?`<section class="panel"><div class="head"><h2>Хүсэлт гаргах</h2><span class="hint">${esc(userName())}</span></div>
+      <form class="form" id="crf">
+        <div class="field full"><label for="crA">Ажил</label><select class="inp" id="crA">${mineA.map(a=>`<option value="${a.id}">${esc(a.id)} · ${esc(a.name)} (${esc(a.blk||'')})</option>`).join('')}</select><span class="hint" id="crH"></span></div>
+        <div class="field"><label for="crS">Шинэ эхлэх огноо</label><input class="inp num" type="date" id="crS"></div>
+        <div class="field"><label for="crE">Шинэ дуусах огноо</label><input class="inp num" type="date" id="crE"></div>
+        <div class="field"><label for="crR">Шалтгаан</label><select class="inp" id="crR">${CR_REASONS.map(r=>`<option>${r}</option>`).join('')}</select></div>
+        <div class="field full"><label for="crN">Үндэслэл</label><textarea class="inp" id="crN" placeholder="Юунаас болж, хэдэн хоногоор, ямар баримт (албан бичиг, акт, зураг) байгаа"></textarea></div>
+        <div class="full actions"><button class="btn pri" type="submit">Хүсэлт илгээх</button><span class="err" id="crErr"></span></div>
+      </form></section>`:''}
+    <div class="head"><h2>Шийдвэр хүлээж буй (${open.length})</h2>${S.crs.filter(myTurn).length?`<span class="pill st-pending">Таны шийдвэр хүлээж буй: ${S.crs.filter(myTurn).length}</span>`:''}</div>
+    <div class="grid2">${open.map(crCard).join('')||'<p class="muted">Нээлттэй хүсэлт алга.</p>'}</div>
+    ${done.length?`<div class="head"><h2>Шийдвэрлэсэн</h2></div><div class="grid2">${done.map(crCard).join('')}</div>`:''}
+    <section class="panel"><div class="head"><h2>Төлөвлөгөөний хувилбарууд</h2></div>
+      <div class="tbl-wrap"><table><thead><tr><th>Хувилбар</th><th>Огноо</th><th>Баталсан</th><th>Өөрчлөлт</th></tr></thead><tbody>
+      ${S.revs.slice().reverse().map(r=>`<tr><td class="mono">v${r.v}</td><td class="num">${fmt(toN(r.date))}</td><td>${esc(r.by)}</td><td>${esc(r.note)}</td></tr>`).join('')}</tbody></table></div></section>
+  </div>`;
+  v.querySelectorAll('[data-cr]').forEach(b=>b.onclick=()=>advanceCR(b.dataset.cr,b.dataset.ok==='1'));
+  if(!canReq)return;
+  const sel=$('crA'),upd=()=>{const a=actById(sel.value);$('crH').textContent=`Одоогийн хувилбар: ${fmt(toN(a.cs))} – ${fmt(toN(a.ce))}`+(changed(a)?` · анхны: ${fmt(toN(a.bs))} – ${fmt(toN(a.be))}`:'');$('crS').value=a.cs;$('crE').value=a.ce};
+  sel.onchange=upd;upd();
+  $('crf').onsubmit=e=>{
+    e.preventDefault();const a=actById(sel.value),ns=$('crS').value,ne=$('crE').value,note=$('crN').value.trim(),E=$('crErr');
+    if(!ns||!ne||toN(ne)<toN(ns)){E.textContent='Дуусах огноо эхлэх огнооноос өмнө байж болохгүй.';return}
+    if(ns===a.cs&&ne===a.ce){E.textContent='Огноо одоогийн хувилбартай ижил байна.';return}
+    if(!note){E.textContent='Үндэслэлээ бичнэ үү.';return}
+    if(S.crs.some(c=>c.a===a.id&&stepIx(c)>=0)){E.textContent='Энэ ажилд шийдвэрлэгдээгүй хүсэлт байна.';return}
+    // a request raised further up the chain skips the steps its author already represents
+    const from=S.role==='planner'?2:S.role==='engineer'?1:0;
+    const c={id:'cr'+Date.now(),a:a.id,by:userName(),date:S.statusDate,os:a.cs,oe:a.ce,ns,ne,reason:$('crR').value,note,status:FLOW[from][0],from,hist:[{who:userName(),dec:'Хүсэлт гаргав',comment:'',t:nowStamp()}]};
+    S.crs.push(c);log(userName(),`${a.id} хугацаа өөрчлөх хүсэлт: ${fmt(toN(a.ce))} → ${fmt(toN(ne))}`,c.reason);
+    save();render();toast('Хүсэлт илгээгдлээ');
+  };
+}
+function advanceCR(id,ok){
+  const c=S.crs.find(x=>x.id===id),i=stepIx(c),a=actById(c.a),cm=$('cc-'+id).value.trim();
+  if(!ok&&!cm){toast('Татгалзах шалтгаанаа бичнэ үү');$('cc-'+id).focus();return}
+  if(ok&&S.role==='planner'){const ns=$('ns-'+id).value,ne=$('ne-'+id).value;if(!ns||!ne||toN(ne)<toN(ns)){toast('Огноогоо шалгана уу');return}
+    if(ns!==c.ns||ne!==c.ne){c.hist.push({who:'Төлөвлөлтийн инженер',dec:`Огноог засав: ${fmt(toN(c.ns))}–${fmt(toN(c.ne))} → ${fmt(toN(ns))}–${fmt(toN(ne))}`,comment:'',t:nowStamp()});c.ns=ns;c.ne=ne}}
+  c.hist.push({who:FLOW[i][2],dec:ok?(i===FLOW.length-1?'Батлав':FLOW[i][3].replace(' шилжүүлэх','')):'Татгалзав',comment:cm,t:nowStamp()});
+  if(!ok){c.status='rejected';c.rejAt=i;log(FLOW[i][2],`${a.id} хугацаа өөрчлөх хүсэлтийг татгалзав`,cm)}
+  else if(i<FLOW.length-1){c.status=FLOW[i+1][0];log(FLOW[i][2],`${a.id} хүсэлтийг ${FLOW[i+1][2]} руу шилжүүлэв`,cm)}
+  else{
+    const v=S.revs.length+1;
+    S.revs.push({v,date:S.statusDate,by:'Гүйцэтгэх захирал',note:`${a.id} ${a.name}: ${fmt(toN(a.cs))}–${fmt(toN(a.ce))} → ${fmt(toN(c.ns))}–${fmt(toN(c.ne))} (${c.reason})`});
+    a.cs=c.ns;a.ce=c.ne;c.status='approved';c.v=v;
+    log('Гүйцэтгэх захирал',`Төлөвлөгөөний хувилбар v${v} батлав: ${a.id} дуусах ${fmt(toN(c.ne))}`,cm);
+  }
+  save();render();toast(!ok?'Татгалзлаа':c.status==='approved'?'Батлагдлаа. Шинэ хувилбар үүслээ':'Дараагийн шат руу шилжлээ');
+}
+
+/* ---------- baseline / import ---------- */
+function viewPlan(v,M){
+  const can=S.role==='planner';
+  v.innerHTML=`<div class="stack"><section class="panel"><div class="head"><h2>Анхны төлөвлөгөө ба одоогийн хувилбар (v${S.revs.length})</h2><span class="lock">🔒 Анхны төлөвлөгөө түгжигдсэн · өөрчлөлт зөвхөн батлагдсан хүсэлтээр</span></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Код</th><th>Ажил</th><th>Гүйцэтгэгч</th><th>Анхны эхлэх</th><th>Анхны дуусах</th><th>Одоогийн дуусах</th><th class="r">Хоног</th><th class="r">Хэмжээ</th><th class="r">Жин</th><th>Өмнөх ажил</th><th>Бодит эхэлсэн</th><th>Прогноз дуусах</th></tr></thead><tbody>
+    ${Object.values(M).map(x=>`<tr class="click" data-open="${x.a.id}"><td class="mono">${esc(x.a.id)}</td><td>${esc(x.a.name)}</td><td>${esc(who(x.a))}</td><td class="num">${fmt(toN(x.a.bs))}</td><td class="num">${fmt(toN(x.a.be))}</td><td class="num ${changed(x.a)?'neg':'muted'}">${changed(x.a)?fmt(toN(x.a.ce)):'—'}</td><td class="r num">${x.dur}</td><td class="r num">${x.a.qty} ${esc(x.a.unit)}</td><td class="r num">${x.a.w}</td><td class="mono">${x.a.pred.join(', ')||'—'}</td><td class="num">${x.as!=null?fmt(x.as):'—'}</td><td class="num ${x.fv>0?'neg':''}">${fmt(x.fF)}</td></tr>`).join('')}
+    </tbody></table></div><p class="hint">Жин нь нийт төслийн явцыг нэгтгэхэд хэрэглэгдэнэ (жишээ нь төсөвт өртгийн хувь). Хугацаа өөрчлөгдвөл анхны төлөвлөгөө хэвээр үлдэж, шинэчилсэн хувилбар тусад нь батлагдах ёстой.</p></section>
+    <section class="panel"><div class="head"><h2>Өөрийн календарчилсан графикийг оруулах</h2><span class="hint">Excel-ээс CSV хэлбэрээр хуулж буулгана</span></div>
+      ${can?`<p class="hint">Багана: <span class="mono">код, ажлын нэр, гүйцэтгэгч, эхлэх, дуусах, хэмжээ, нэгж, жин, өмнөх ажил</span>. Огноо <span class="mono">2026-10-01</span> хэлбэртэй. Өмнөх ажлыг <span class="mono">;</span>-ээр тусгаарлана. Таслал эсвэл tab тусгаарлагч хоёулаа болно.</p>
+      <div class="field"><label for="pn">Төслийн нэр</label><input class="inp" id="pn" value="${esc(S.sample?'':S.project.name)}" placeholder="Жишээ: 16 давхар орон сууц, 2-р блок"></div>
+      <div class="field" style="margin-top:10px"><label for="csv">Хуваарь</label><textarea class="inp mono" id="csv" style="min-height:160px" placeholder="код,ажлын нэр,гүйцэтгэгч,эхлэх,дуусах,хэмжээ,нэгж,жин,өмнөх ажил
+A10,Талбайн бэлтгэл,Гүйцэтгэгч А,2026-08-01,2026-08-08,1200,м²,2,
+A20,Газар шорооны ухалт,Гүйцэтгэгч А,2026-08-06,2026-08-25,4800,м³,6,A10"></textarea></div>
+      <div class="actions" style="margin-top:10px"><button class="btn pri" id="imp">Шалгах</button><button class="btn" id="rst">Мастер графикийг сэргээх</button></div><div id="impOut" style="margin-top:10px"></div>`:'<p class="muted">Шинэ төлөвлөгөө оруулах эрх зөвхөн төлөвлөлтийн инженерт байна. Нэг ажлын хугацааг өөрчлөх бол "Хугацааны өөрчлөлт" цонхноос хүсэлт гаргана.</p>'}
+    </section></div>`;
+  if(!can)return;
+  $('rst').onclick=()=>{$('impOut').innerHTML=`<div class="note">Бүх тайлан устаж, батлагдсан мастер график (2026.04.06) дахин ачаалагдана. <button class="btn sm bad" id="rstOk">Тийм, сэргээх</button></div>`;$('rstOk').onclick=()=>{S=seed();calAnchor=null;save();render();toast('Мастер график сэргэлээ')}};
+  $('imp').onclick=()=>{
+    const res=parseCSV($('csv').value),out=$('impOut');
+    if(res.err.length){out.innerHTML=`<div class="err">${res.err.slice(0,8).map(esc).join('<br>')}</div>`;return}
+    out.innerHTML=`<div class="note">${res.acts.length} ажил, ${res.contractors.length} гүйцэтгэгч уншигдлаа (${fmt(Math.min(...res.acts.map(a=>toN(a.bs))))} – ${fmt(Math.max(...res.acts.map(a=>toN(a.be))))}). Одоогийн жишээ өгөгдөл, тайлангууд устаж энэ хуваарь анхны төлөвлөгөө болж түгжигдэнэ. <button class="btn sm pri" id="impOk">Баталж оруулах</button></div>`;
+    $('impOk').onclick=()=>{
+      const name=$('pn').value.trim()||'Шинэ төсөл';
+      S={sample:false,project:{name,meta:`${res.acts.length} ажил · ${res.contractors.length} гүйцэтгэгч`},statusDate:S.statusDate,role:'planner',me:res.contractors[0].id,contractors:res.contractors,acts:res.acts,reports:[],audit:[],tab:'gantt'};
+      log('Төлөвлөлтийн инженер',`Анхны төлөвлөгөө (Baseline v1) оруулж түгжив: ${res.acts.length} ажил`);calAnchor=null;save();render();toast('График орж, түгжигдлээ');
+    };
+  };
+}
+function parseCSV(txt){
+  const err=[],acts=[],cmap={};const lines=txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const isDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s);
+  lines.forEach((l,i)=>{
+    const f=l.split(l.includes('\t')?'\t':',').map(s=>s.trim().replace(/^"|"$/g,''));
+    if(i===0&&!isDate(f[3]||''))return;// header
+    const [id,name,cn,bs,be,qty,unit,w,pred]=f;
+    if(!id||!name){err.push(`${i+1}-р мөр: код эсвэл нэр дутуу`);return}
+    if(!isDate(bs||'')||!isDate(be||'')){err.push(`${i+1}-р мөр: огноо YYYY-MM-DD хэлбэртэй байх ёстой`);return}
+    if(toN(be)<toN(bs)){err.push(`${i+1}-р мөр: дуусах огноо эхлэхээс өмнө байна`);return}
+    const c=cn||'Тодорхойгүй';if(!cmap[c])cmap[c]={id:'c'+(Object.keys(cmap).length+1),name:c,scope:''};
+    acts.push({id,name,c:cmap[c].id,bs,be,qty:parseFloat(qty)||100,unit:unit||'%',w:parseFloat(w)||1,pred:(pred||'').split(/[;|]/).map(s=>s.trim()).filter(Boolean),as:null,af:null});
+  });
+  const ids=new Set(acts.map(a=>a.id));if(ids.size!==acts.length)err.push('Давхардсан код байна');
+  acts.forEach(a=>a.pred.forEach(p=>{if(!ids.has(p))err.push(`${a.id}: өмнөх ажил "${p}" олдсонгүй`)}));
+  if(!acts.length&&!err.length)err.push('Хуваарь хоосон байна');
+  return {err,acts,contractors:Object.values(cmap)};
+}
+
+/* ---------- audit ---------- */
+function viewLog(v){
+  v.innerHTML=`<section class="panel"><div class="head"><h2>Өөрчлөлтийн түүх</h2><span class="hint">Хэн, хэзээ, юу хийснийг устгах боломжгүйгээр хадгална</span></div>
+  <div class="tbl-wrap"><table><thead><tr><th>Хугацаа</th><th>Хэрэглэгч</th><th>Үйлдэл</th><th>Тайлбар</th></tr></thead><tbody>
+  ${S.audit.map(l=>`<tr><td class="num">${esc(l.t.replace('T',' '))}</td><td>${esc(l.u)}</td><td>${esc(l.a)}</td><td class="hint">${esc(l.x)}</td></tr>`).join('')}</tbody></table></div></section>`;
+}
+
+/* ---------- drawer ---------- */
+function openDrawer(id){
+  const M=compute(),x=M[id];if(!x)return;const a=x.a;
+  const reps=S.reports.filter(r=>r.a===id).sort((p,q)=>p.date<q.date?1:-1);
+  const root=$('drawerRoot');
+  root.innerHTML=`<div class="scrim" id="scr"></div><aside class="drawer" role="dialog" aria-label="${esc(a.name)}"><button class="btn sm x" id="dx">Хаах</button>
+    <div><span class="eyebrow">${esc(a.id)} · ${esc(who(a))}</span><h2 style="font-size:20px;margin-top:4px">${esc(a.name)}</h2></div>
+    ${actCard(x).replace('<button class="acard"','<div class="acard"').replace(/<\/button>$/,'</div>')}
+    <div class="facts" style="border:0;padding:0"><div><span class="muted">Анхны төлөвлөгөө</span><b>${fmt(x.bS)} – ${fmt(x.bE)}</b></div><div><span class="muted">Бодит эхэлсэн</span><b>${x.as!=null?fmt(x.as):'Эхлээгүй'}</b></div><div><span class="muted">Нийт хэмжээ</span><b>${a.qty} ${esc(a.unit)}</b></div><div><span class="muted">Өмнөх ажил</span><b>${a.pred.join(', ')||'—'}</b></div></div>
+    <p class="hint">Прогноз: эхэлсэн ажлыг одоогийн бүтээмжээр (батлагдсан хувь ÷ өнгөрсөн хоног) үлдэгдлийг тооцож (төлөвлөсөн хугацааны 2 дахинаас хэтрүүлэхгүй), эхлээгүй ажлыг өмнөх ажлын прогнозоос хойш төлөвлөсөн үргэлжлэх хугацаагаар тооцно.</p>
+    <h3>Тайлангийн түүх</h3>${reps.map(r=>reportCard(r,'')).join('')||'<p class="muted">Тайлан ирээгүй.</p>'}</aside>`;
+  const close=()=>{root.innerHTML='';document.removeEventListener('keydown',k)};const k=e=>{if(e.key==='Escape')close()};
+  $('scr').onclick=close;$('dx').onclick=close;document.addEventListener('keydown',k);$('dx').focus();
+}
+
+// Project logo: the still mark shows until the animation actually plays, then the video rests on its final frame
+(()=>{const v=$('plogoV'),i=$('plogoI');
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  v.addEventListener('playing',()=>{v.hidden=false;i.hidden=true},{once:true});
+  v.onerror=()=>{v.hidden=true;i.hidden=false};
+  const p=v.play();if(p)p.catch(()=>{});
+})();
+render();
+})();
+</script>
+
+</body></html>
